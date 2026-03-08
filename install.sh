@@ -63,24 +63,20 @@ if ! command -v starship >/dev/null 2>&1; then
   esac
 fi
 
-# ── 5. starship.toml append — idempotent ─────────────────────────────────────
-STARSHIP_CONFIG="$ROOT/.config/starship.toml"
-mkdir -p "$(dirname "$STARSHIP_CONFIG")"
+# ── 5. cship.toml — create minimal config (idempotent) ───────────────────────
+CSHIP_CONFIG="$ROOT/.config/cship.toml"
+mkdir -p "$(dirname "$CSHIP_CONFIG")"
 
 CSHIP_BLOCK='# cship — Claude Code statusline
-[cship]
+# Full config reference: https://github.com/stephenleo/cship
 lines = ["$cship.model $cship.cost $cship.context_bar"]
 '
 
-if grep -q '^\[cship\]' "$STARSHIP_CONFIG" 2>/dev/null; then
-  echo "starship.toml already contains [cship] block, skipping."
+if [ -f "$CSHIP_CONFIG" ]; then
+  echo "cship.toml already exists at $CSHIP_CONFIG, skipping."
 else
-  # Add a blank line separator if appending to an existing file
-  if [ -s "$STARSHIP_CONFIG" ]; then
-    printf '\n' >> "$STARSHIP_CONFIG"
-  fi
-  printf '%s' "$CSHIP_BLOCK" >> "$STARSHIP_CONFIG"
-  echo "Appended [cship] starter block to $STARSHIP_CONFIG"
+  printf '%s' "$CSHIP_BLOCK" > "$CSHIP_CONFIG"
+  echo "Created minimal cship config at $CSHIP_CONFIG"
 fi
 
 # ── 6. ~/.claude/settings.json — wire statusline (via python3) ───────────────
