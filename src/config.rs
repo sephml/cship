@@ -63,6 +63,10 @@ pub struct CostSubfieldConfig {
     pub disabled: Option<bool>,
     /// Reserved — not yet rendered; included for config schema consistency.
     pub label: Option<String>,
+    pub warn_threshold: Option<f64>,
+    pub warn_style: Option<String>,
+    pub critical_threshold: Option<f64>,
+    pub critical_style: Option<String>,
     pub format: Option<String>,
 }
 
