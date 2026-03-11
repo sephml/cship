@@ -1,5 +1,10 @@
 # CShip (pronounced "sea ship")
 
+[![CI](https://img.shields.io/github/actions/workflow/status/stephenleo/cship/ci.yml?branch=main&label=CI&style=flat-square)](https://github.com/stephenleo/cship/actions/workflows/ci.yml)
+[![Crates.io version](https://img.shields.io/crates/v/cship?style=flat-square)](https://crates.io/crates/cship)
+[![GitHub release](https://img.shields.io/github/v/release/stephenleo/cship?style=flat-square)](https://github.com/stephenleo/cship/releases/latest)
+[![License](https://img.shields.io/github/license/stephenleo/cship?style=flat-square)](https://github.com/stephenleo/cship/blob/main/LICENSE)
+
 **Beautiful, Blazing-fast, Customizable Claude Code Statusline.**
 
 `cship` renders a live statusline for [Claude Code](https://claude.ai/code) sessions, showing session cost, context window usage, model name, API usage limits, and more — all configurable via a simple TOML file.
