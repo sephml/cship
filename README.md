@@ -1,4 +1,4 @@
-# CShip (pronounced "sea ship")
+# ⚓ CShip (pronounced "sea ship")
 
 [![CI](https://img.shields.io/github/actions/workflow/status/stephenleo/cship/ci.yml?branch=main&label=CI&style=flat-square)](https://github.com/stephenleo/cship/actions/workflows/ci.yml)
 [![Crates.io version](https://img.shields.io/crates/v/cship?style=flat-square)](https://crates.io/crates/cship)
@@ -9,9 +9,9 @@
 
 `cship` renders a live statusline for [Claude Code](https://claude.ai/code) sessions, showing session cost, context window usage, model name, API usage limits, and more — all configurable via a simple TOML file.
 
-## Install
+## 🚀 Install
 
-### Method 1: curl installer (recommended)
+### ⚡ Method 1: curl installer (recommended)
 
 Auto-detects your OS and architecture (macOS arm64/x86_64, Linux x86_64/aarch64), downloads the binary to `~/.local/bin/cship`, creates a starter config at `~/.config/cship.toml`, wires the `statusLine` entry in `~/.claude/settings.json`, and optionally installs [Starship](https://starship.rs) (needed for passthrough modules) and, on Linux, `libsecret-tools` (needed for usage limits).
 
@@ -19,7 +19,7 @@ Auto-detects your OS and architecture (macOS arm64/x86_64, Linux x86_64/aarch64)
 curl -fsSL https://raw.githubusercontent.com/stephenleo/cship/main/install.sh | bash
 ```
 
-### Method 2: cargo install
+### 📦 Method 2: cargo install
 
 Requires the Rust toolchain.
 
@@ -35,7 +35,7 @@ After installing with `cargo`, wire the statusline manually in `~/.claude/settin
 }
 ```
 
-## Configuration
+## ⚙️ Configuration
 
 The default config file is `~/.config/cship.toml`. You can also place a `cship.toml` in your project root for per-project overrides. The `lines` array defines the rows of your statusline. Each element is a format string mixing `$cship.<module>` tokens (native cship modules) with Starship module tokens (e.g. `$git_branch`). A minimal working example:
 
@@ -45,7 +45,7 @@ lines = ["$cship.model $cship.cost $cship.context_bar"]
 ```
 <img src="./docs/examples/01.png" alt="Initial cship statusline example" width="600">
 
-### Styling example
+### 🎨 Styling example
 
 ```toml
 [cship]
@@ -59,7 +59,7 @@ critical_style = "bold red"
 ```
 <img src="./docs/examples/02.png" alt="Initial cship statusline example" width="600">
 
-### Available modules
+### 🧩 Available modules
 
 Everything in the [Claude Code status line documentation](https://code.claude.com/docs/en/statusline#available-data) is available as a `$cship.<module>` token for you to mix and match in the `lines` format strings. Here are the most popular ones:
 
@@ -76,7 +76,7 @@ Everything in the [Claude Code status line documentation](https://code.claude.co
 
 Full configuration reference: **https://cship.dev**
 
-## Debugging
+## 🔍 Debugging
 
 Run `cship explain` to inspect what cship sees from Claude Code's context JSON — useful when a module shows nothing or behaves unexpectedly.
 
@@ -84,13 +84,13 @@ Run `cship explain` to inspect what cship sees from Claude Code's context JSON �
 cship explain
 ```
 
-## Showcase
+## ✨ Showcase
 
 Six ready-to-use configurations — from minimal to full-featured. Each can be dropped into `~/.config/cship.toml`.
 
 ---
 
-### 1. Minimal
+### 1. 🪶 Minimal
 
 One clean row. Model, cost with colour thresholds, context bar.
 
@@ -122,7 +122,7 @@ critical_style     = "bold red"
 
 ---
 
-### 2. Git-Aware Developer
+### 2. 🌿 Git-Aware Developer
 
 Two rows: Starship git status on top, Claude session below. Starship passthrough (`$directory`, `$git_branch`, `$git_status`) requires [Starship](https://starship.rs) to be installed.
 
@@ -160,7 +160,7 @@ critical_style     = "bold red"
 
 ---
 
-### 3. Cost Guardian
+### 3. 💰 Cost Guardian
 
 Shows cost, lines changed, and rolling API usage limits all at once. Colour escalates as budgets fill.
 
@@ -206,7 +206,7 @@ critical_style     = "bold red"
 
 ---
 
-### 4. Material Hex
+### 4. 🎨 Material Hex
 
 Every style value is a `fg:#rrggbb` hex colour — no named colours anywhere. Amber warns, coral criticals.
 
@@ -254,7 +254,7 @@ critical_style     = "bold fg:#f07178"
 
 ---
 
-### 5. Tokyo Night
+### 5. 🌃 Tokyo Night
 
 Three-row layout for polyglot developers. Starship handles language runtimes and git; cship handles session data. Styled with the [Tokyo Night](https://github.com/folke/tokyonight.nvim) colour palette.
 
@@ -316,7 +316,7 @@ critical_style     = "bold fg:#f7768e"
 
 ---
 
-### 6. Nerd Fonts
+### 6. 🔤 Nerd Fonts
 
 Requires a [Nerd Font](https://www.nerdfonts.com) in your terminal. Icons are embedded as `symbol` values on each module and as literal characters in the format string for Starship passthrough rows. You can use `format` to control how the symbol and value are combined for each module exactly like you'd do with Starship.
 
@@ -375,7 +375,7 @@ critical_style     = "bold fg:#f7768e"
 
 ---
 
-## Full documentation
+## 📚 Full documentation [Coming Soon]
 
 → **[cship.dev](https://cship.dev)**
 
@@ -383,6 +383,6 @@ Complete configuration reference, format string syntax, all module options, and 
 
 ---
 
-## License
+## 📄 License
 
 Apache-2.0
