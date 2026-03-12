@@ -2,22 +2,32 @@
 
 [![CI](https://img.shields.io/github/actions/workflow/status/stephenleo/cship/ci.yml?branch=main&label=CI&style=flat-square)](https://github.com/stephenleo/cship/actions/workflows/ci.yml)
 [![Crates.io version](https://img.shields.io/crates/v/cship?style=flat-square)](https://crates.io/crates/cship)
+[![Crates downloads](https://img.shields.io/crates/d/cship?label=crates%20downloads&style=flat-square)](https://crates.io/crates/cship)
 [![GitHub release](https://img.shields.io/github/v/release/stephenleo/cship?style=flat-square)](https://github.com/stephenleo/cship/releases/latest)
+[![GitHub downloads](https://img.shields.io/github/downloads/stephenleo/cship/total?label=github%20downloads&style=flat-square)](https://github.com/stephenleo/cship/releases)
 [![License](https://img.shields.io/github/license/stephenleo/cship?style=flat-square)](https://github.com/stephenleo/cship/blob/main/LICENSE)
 
 **Beautiful, Blazing-fast, Customizable Claude Code Statusline.**
 
+<img src="./docs/examples/hero.gif" alt="cship statusline examples" centered>
+
 `cship` renders a live statusline for [Claude Code](https://claude.ai/code) sessions, showing session cost, context window usage, model name, API usage limits, and more — all configurable via a simple TOML file.
+
+### Key features:
+- 🎨 Fully Customizable: Configure every module with Starship-compatible TOML. Colors, symbols, thresholds — your statusline, your rules.
+- ⚡ Blazing Fast: Written in Rust with a ≤10ms render budget.
+- 🔌 Starship Passthrough: Embed any [Starship](https://starship.rs) module (git_branch, directory, language runtimes) right next to native CShip modules.
+- 💰 Session Insights: Track cost, context window usage, API limits, vim mode, agent name, and more — all from Claude Code's live JSON feed. Implement custom warn and critical thresholds with custom colors for each. 
 
 ## 🚀 Install
 
 ### ⚡ Method 1: curl installer (recommended)
 
-Auto-detects your OS and architecture (macOS arm64/x86_64, Linux x86_64/aarch64), downloads the binary to `~/.local/bin/cship`, creates a starter config at `~/.config/cship.toml`, wires the `statusLine` entry in `~/.claude/settings.json`, and optionally installs [Starship](https://starship.rs) (needed for passthrough modules) and, on Linux, `libsecret-tools` (needed for usage limits).
-
 ```sh
 curl -fsSL https://cship.dev/install.sh | bash
 ```
+
+Auto-detects your OS and architecture (macOS arm64/x86_64, Linux x86_64/aarch64), downloads the binary to `~/.local/bin/cship`, creates a starter config at `~/.config/cship.toml`, wires the `statusLine` entry in `~/.claude/settings.json`, and optionally installs [Starship](https://starship.rs) (needed for passthrough modules) and, on Linux, `libsecret-tools` (needed for usage limits).
 
 ### 📦 Method 2: cargo install
 
@@ -37,7 +47,12 @@ After installing with `cargo`, wire the statusline manually in `~/.claude/settin
 
 ## ⚙️ Configuration
 
-The default config file is `~/.config/cship.toml`. You can also place a `cship.toml` in your project root for per-project overrides. The `lines` array defines the rows of your statusline. Each element is a format string mixing `$cship.<module>` tokens (native cship modules) with Starship module tokens (e.g. `$git_branch`). A minimal working example:
+- The default config file is `~/.config/cship.toml`. 
+- You can also place a `cship.toml` in your project root for per-project overrides. 
+- The `lines` array defines the rows of your statusline. 
+- Each element is a format string mixing `$cship.<module>` tokens (native cship modules) with Starship module tokens (e.g. `$git_branch`). 
+
+A minimal working example:
 
 ```toml
 [cship]

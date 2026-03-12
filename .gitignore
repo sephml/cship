@@ -9,3 +9,4 @@ starship.toml
 
 .vscode/
 install_private.sh
+.DS_Store

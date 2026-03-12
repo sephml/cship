@@ -6,7 +6,7 @@ hero:
   text: "Beautiful, Blazing-fast, Customizable Claude Code Statusline"
   tagline: Bring Starship's power to Claude Code. Configure everything in TOML.
   image:
-    src: /examples/08.png
+    src: /examples/hero.gif
     alt: CShip statusline with Nerd Fonts — git branch, language runtimes, model, cost, context bar, and usage limits
   actions:
     - theme: brand
@@ -25,7 +25,7 @@ features:
     details: Configure every module with Starship-compatible TOML. Colors, symbols, thresholds — your statusline, your rules.
   - icon: ⚡
     title: Blazing Fast
-    details: Written in Rust with a ≤10ms render budget. No async runtime, no slowdown.
+    details: Written in Rust with a ≤10ms render budget.
   - icon: 🔌
     title: Starship Passthrough
     details: Embed any Starship module (git_branch, directory, language runtimes) right next to native CShip modules.
@@ -37,6 +37,7 @@ features:
 ## What is CShip?
 
 `cship` renders a live statusline for [Claude Code](https://claude.ai/code) sessions.
+
 It reads Claude Code's session JSON from stdin and renders styled text using a simple TOML config file — the same format as [Starship](https://starship.rs).
 
 If you've already invested in Starship customization, CShip slots right in: add `[cship.*]` sections to your existing `starship.toml` (or use a dedicated `~/.config/cship.toml`), reference native CShip modules alongside any Starship module, and get a unified statusline that speaks both languages.
@@ -45,11 +46,11 @@ If you've already invested in Starship customization, CShip slots right in: add 
 
 ### Quick Install (recommended)
 
-Auto-detects your OS and architecture (macOS arm64/x86_64, Linux x86_64/aarch64), downloads the binary to `~/.local/bin/cship`, creates a starter config at `~/.config/cship.toml`, wires the `statusLine` entry in `~/.claude/settings.json`, and optionally installs [Starship](https://starship.rs) and `libsecret-tools` (Linux only, needed for usage limits).
-
 ```sh
 curl -fsSL https://cship.dev/install.sh | bash
 ```
+
+Auto-detects your OS and architecture (macOS arm64/x86_64, Linux x86_64/aarch64), downloads the binary to `~/.local/bin/cship`, creates a starter config at `~/.config/cship.toml`, wires the `statusLine` entry in `~/.claude/settings.json`, and optionally installs [Starship](https://starship.rs) and `libsecret-tools` (Linux only, needed for usage limits).
 
 ### Cargo Install {#install-cargo}
 
