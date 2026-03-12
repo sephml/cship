@@ -1,0 +1,13 @@
+{
+  "name": "cship-docs",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "docs:dev": "vitepress dev --host",
+    "docs:build": "node -e \"require('fs').copyFileSync('../install.sh', 'public/install.sh')\" && vitepress build",
+    "docs:preview": "vitepress preview"
+  },
+  "devDependencies": {
+    "vitepress": "^1.6.3"
+  }
+}
