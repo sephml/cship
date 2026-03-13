@@ -3,21 +3,15 @@ layout: home
 
 hero:
   name: "⚓ CShip"
-  text: "Beautiful, Blazing-fast, Customizable Claude Code Statusline"
-  tagline: Bring Starship's power to Claude Code. Configure everything in TOML.
-  image:
-    src: /examples/hero.gif
-    alt: CShip statusline with Nerd Fonts — git branch, language runtimes, model, cost, context bar, and usage limits
+  text: ""
+  tagline: Bring Starship's power to Claude Code Status Line.
   actions:
     - theme: brand
       text: Get Started
-      link: /configuration
-    - theme: alt
-      text: curl installer
       link: /#install-curl
     - theme: alt
-      text: cargo install
-      link: /#install-cargo
+      text: Configure
+      link: /configuration
 
 features:
   - icon: 🎨

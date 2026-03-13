@@ -9,7 +9,7 @@
 
 **Beautiful, Blazing-fast, Customizable Claude Code Statusline.**
 
-<img src="./docs/examples/hero.gif" alt="cship statusline examples" centered>
+<img src="./docs/examples/cship.png" alt="cship features" centered>
 
 `cship` renders a live statusline for [Claude Code](https://claude.ai/code) sessions, showing session cost, context window usage, model name, API usage limits, and more — all configurable via a simple TOML file.
 
