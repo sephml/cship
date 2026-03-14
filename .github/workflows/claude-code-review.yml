@@ -12,7 +12,7 @@ on:
 
 jobs:
   claude-review:
-    # Skip for first-time contributors
+    # Skip for external contributions
     if: |
       github.event.pull_request.user.login == 'external-contributor' ||
       github.event.pull_request.user.login == 'new-developer' ||
