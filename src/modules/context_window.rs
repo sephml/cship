@@ -160,6 +160,44 @@ pub fn render_remaining_percentage(ctx: &Context, cfg: &CshipConfig) -> Option<S
     ))
 }
 
+/// Renders `$cship.context_window.used_tokens` — real token count from `current_usage`.
+///
+/// Computes: `input_tokens + cache_creation_input_tokens + cache_read_input_tokens`
+/// from `current_usage`, combined with `used_percentage` and `context_window_size`.
+/// Output format: `8%(79k/1000k)`.
+/// Returns `None` when `current_usage` is absent (before first API call).
+pub fn render_used_tokens(ctx: &Context, cfg: &CshipConfig) -> Option<String> {
+    if is_disabled(cfg) {
+        return None;
+    }
+    let cw_cfg = cfg.context_window.as_ref();
+    let sub_cfg = cw_cfg.and_then(|c| c.used_tokens.as_ref());
+    if sub_cfg.and_then(|c| c.disabled).unwrap_or(false) {
+        return None;
+    }
+    let cw = ctx.context_window.as_ref()?;
+    let cu = cw.current_usage.as_ref()?;
+    let used = cu.input_tokens.unwrap_or(0)
+        + cu.cache_creation_input_tokens.unwrap_or(0)
+        + cu.cache_read_input_tokens.unwrap_or(0);
+    let size = cw.context_window_size?;
+    let pct = cw.used_percentage.unwrap_or(0.0);
+    let val_str = format!("{:.0}%({}k/{}k)", pct, used / 1000, size / 1000);
+    let style = sub_cfg
+        .and_then(|c| c.style.as_deref())
+        .or_else(|| cw_cfg.and_then(|c| c.style.as_deref()));
+    if let Some(fmt) = sub_cfg
+        .and_then(|c| c.format.as_deref())
+        .or_else(|| cw_cfg.and_then(|c| c.format.as_deref()))
+    {
+        let symbol = sub_cfg
+            .and_then(|c| c.symbol.as_deref())
+            .or_else(|| cw_cfg.and_then(|c| c.symbol.as_deref()));
+        return crate::format::apply_module_format(fmt, Some(&val_str), symbol, style);
+    }
+    Some(crate::ansi::apply_style(&val_str, style))
+}
+
 /// Renders `$cship.context_window.size` — reads `context_window_size` field (not `size`).
 pub fn render_size(ctx: &Context, cfg: &CshipConfig) -> Option<String> {
     if is_disabled(cfg) {

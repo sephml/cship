@@ -85,6 +85,7 @@ Everything in the [Claude Code status line documentation](https://code.claude.co
 | `$cship.cost` | Session cost in USD ($X.XX) |
 | `$cship.context_bar` | Visual progress bar of context window usage |
 | `$cship.context_window` | Context window tokens (used/total) |
+| `$cship.context_window.used_tokens` | Real token count in context with percentage (e.g. `8%(79k/1000k)`) |
 | `$cship.usage_limits` | API usage limits (5hr / 7-day) |
 | `$cship.agent` | Sub-agent name |
 | `$cship.session` | Session identity info |
