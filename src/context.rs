@@ -23,6 +23,21 @@ pub struct Context {
     pub vim: Option<Vim>,
     /// Absent unless --agent flag or agent settings are active.
     pub agent: Option<Agent>,
+    /// Rate limits sent directly by Claude Code via stdin (Pro/Max subscribers).
+    /// When present, the usage_limits module uses this instead of making an OAuth API call.
+    pub rate_limits: Option<RateLimits>,
+}
+
+#[derive(Debug, Deserialize, Default)]
+pub struct RateLimits {
+    pub five_hour: Option<RateLimitPeriod>,
+    pub seven_day: Option<RateLimitPeriod>,
+}
+
+#[derive(Debug, Deserialize, Default)]
+pub struct RateLimitPeriod {
+    pub used_percentage: Option<f64>,
+    pub resets_at: Option<u64>,
 }
 
 #[derive(Debug, Deserialize, Default)]

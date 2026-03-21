@@ -28,38 +28,34 @@ pub fn render(ctx: &Context, cfg: &CshipConfig) -> Option<String> {
         return None;
     }
 
-    // Step 2: transcript_path required for cache key
-    // Silent None (no warn) — per Dev Notes: transcript_path absence is expected when
-    // cship is invoked outside a Claude Code session (not an error condition).
-    let transcript_str = ctx.transcript_path.as_deref()?;
-    let transcript_path = std::path::Path::new(transcript_str);
-
-    // Step 3: cache hit → render immediately
-    let data = if let Some(cached) = cache::read_usage_limits(transcript_path, false) {
-        cached
+    // Step 2: try to use rate_limits from stdin (Claude Code sends this directly)
+    let data = if let Some(from_stdin) = data_from_stdin_rate_limits(ctx) {
+        from_stdin
     } else {
-        // Step 4a: get OAuth token
-        let token = match crate::platform::get_oauth_token() {
-            Ok(t) => t,
-            Err(e) => {
-                tracing::warn!("cship.usage_limits: credential retrieval failed: {e}");
-                return None;
-            }
-        };
+        // Step 3: fall back to cache / OAuth API fetch
+        let transcript_str = ctx.transcript_path.as_deref()?;
+        let transcript_path = std::path::Path::new(transcript_str);
 
-        // Step 4b: dispatch fetch with 2s timeout
-        // Configurable TTL (default 60s) — Issue #95
-        let ttl_secs = ul_cfg.and_then(|c| c.ttl).unwrap_or(60);
+        if let Some(cached) = cache::read_usage_limits(transcript_path, false) {
+            cached
+        } else {
+            let token = match crate::platform::get_oauth_token() {
+                Ok(t) => t,
+                Err(e) => {
+                    tracing::warn!("cship.usage_limits: credential retrieval failed: {e}");
+                    return None;
+                }
+            };
 
-        match fetch_with_timeout(move || crate::usage_limits::fetch_usage_limits(&token)) {
-            Some(fresh) => {
-                // Step 4c: write fresh data to cache for future renders
-                cache::write_usage_limits(transcript_path, &fresh, ttl_secs);
-                fresh
+            let ttl_secs = ul_cfg.and_then(|c| c.ttl).unwrap_or(60);
+
+            match fetch_with_timeout(move || crate::usage_limits::fetch_usage_limits(&token)) {
+                Some(fresh) => {
+                    cache::write_usage_limits(transcript_path, &fresh, ttl_secs);
+                    fresh
+                }
+                None => cache::read_usage_limits(transcript_path, true)?,
             }
-            // AC #4: on timeout or API error, fall back to last cached value (may be stale)
-            // Do NOT write stale data back to cache — that would falsely reset the TTL
-            None => cache::read_usage_limits(transcript_path, true)?,
         }
     };
 
@@ -109,6 +105,48 @@ where
             None
         }
     }
+}
+
+/// Extract usage limits from the `rate_limits` field Claude Code sends via stdin.
+/// This avoids the OAuth API call entirely when the data is available.
+/// `resets_at` is a Unix epoch in the stdin payload; convert to ISO 8601 for `format_time_until`.
+fn data_from_stdin_rate_limits(ctx: &Context) -> Option<UsageLimitsData> {
+    let rl = ctx.rate_limits.as_ref()?;
+    let five = rl.five_hour.as_ref()?;
+    let seven = rl.seven_day.as_ref()?;
+    let five_pct = five.used_percentage?;
+    let seven_pct = seven.used_percentage?;
+
+    fn epoch_to_iso(epoch: Option<u64>) -> String {
+        match epoch {
+            Some(e) => {
+                let days_since_epoch = (e / 86400) as i64;
+                let remaining = e % 86400;
+                let hour = remaining / 3600;
+                let min = (remaining % 3600) / 60;
+                let sec = remaining % 60;
+                let z = days_since_epoch + 719468;
+                let era = z.div_euclid(146097);
+                let doe = z - era * 146097;
+                let yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365;
+                let y = yoe + era * 400;
+                let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+                let mp = (5 * doy + 2) / 153;
+                let d = doy - (153 * mp + 2) / 5 + 1;
+                let m = if mp < 10 { mp + 3 } else { mp - 9 };
+                let y = if m <= 2 { y + 1 } else { y };
+                format!("{:04}-{:02}-{:02}T{:02}:{:02}:{:02}Z", y, m, d, hour, min, sec)
+            }
+            None => String::new(),
+        }
+    }
+
+    Some(UsageLimitsData {
+        five_hour_pct: five_pct,
+        seven_day_pct: seven_pct,
+        five_hour_resets_at: epoch_to_iso(five.resets_at),
+        seven_day_resets_at: epoch_to_iso(seven.resets_at),
+    })
 }
 
 /// Format usage data using configurable format strings.
