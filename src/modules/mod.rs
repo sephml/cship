@@ -31,6 +31,7 @@ pub const ALL_NATIVE_MODULES: &[&str] = &[
     "cship.context_window.current_usage.output_tokens",
     "cship.context_window.current_usage.cache_creation_input_tokens",
     "cship.context_window.current_usage.cache_read_input_tokens",
+    "cship.context_window.used_tokens",
     "cship.vim",
     "cship.vim.mode",
     "cship.agent",
@@ -90,6 +91,7 @@ pub fn render_module(
         "cship.context_window.current_usage.cache_read_input_tokens" => {
             context_window::render_current_usage_cache_read_input_tokens(ctx, cfg)
         }
+        "cship.context_window.used_tokens" => context_window::render_used_tokens(ctx, cfg),
         // Vim module — mode display
         "cship.vim" => vim::render(ctx, cfg),
         "cship.vim.mode" => vim::render_mode(ctx, cfg),

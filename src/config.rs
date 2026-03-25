@@ -128,6 +128,7 @@ pub struct ContextWindowConfig {
     pub current_usage_output_tokens: Option<ContextWindowSubfieldConfig>,
     pub current_usage_cache_creation_input_tokens: Option<ContextWindowSubfieldConfig>,
     pub current_usage_cache_read_input_tokens: Option<ContextWindowSubfieldConfig>,
+    pub used_tokens: Option<ContextWindowSubfieldConfig>,
 }
 
 /// Configuration for `[cship.vim]` — vim mode display.

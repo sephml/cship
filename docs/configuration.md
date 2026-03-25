@@ -203,6 +203,7 @@ Displays detailed context window token counts. The parent token shows used/total
 | `$cship.context_window.current_usage_output_tokens` | Current turn output tokens |
 | `$cship.context_window.current_usage_cache_creation_input_tokens` | Cache creation tokens |
 | `$cship.context_window.current_usage_cache_read_input_tokens` | Cache read tokens |
+| `$cship.context_window.used_tokens` | Real token count in context with percentage — computed from `current_usage` (`input_tokens + cache_creation + cache_read`) and `context_window_size`. Renders as e.g. `8%(79k/1000k)`. Returns nothing before first API call. |
 
 Each sub-field supports `style`, `symbol`, `format`, `warn_threshold`, `warn_style`, `critical_threshold`, `critical_style`, `disabled`, and `invert_threshold`.
 
@@ -309,8 +310,8 @@ Displays 5-hour and 7-day API utilization percentages with time-to-reset.
 | `disabled` | `bool` | `false` | Hide this module |
 | `style` | `string` | — | Base ANSI style |
 | `format` | `string` | — | Format string |
-| `five_hour_format` | `string` | `"5h: {pct}% resets in {reset}"` | Format for the 5h window; `{pct}` and `{reset}` are placeholders |
-| `seven_day_format` | `string` | `"7d: {pct}% resets in {reset}"` | Format for the 7d window |
+| `five_hour_format` | `string` | `"5h: {pct}% resets in {reset}"` | Format for the 5h window. Placeholders: `{pct}` (% used), `{remaining}` (% left), `{reset}` (time to reset) |
+| `seven_day_format` | `string` | `"7d: {pct}% resets in {reset}"` | Format for the 7d window. Same placeholders as above |
 | `separator` | `string` | `" \| "` | String placed between 5h and 7d sections |
 | `warn_threshold` | `float` | — | % at which style switches to `warn_style` |
 | `warn_style` | `string` | `"yellow"` | Style at warn level |
@@ -323,8 +324,8 @@ Displays 5-hour and 7-day API utilization percentages with time-to-reset.
 ```toml
 [cship.usage_limits]
 ttl                = 300       # 5 minutes; increase if you run many concurrent sessions
-five_hour_format   = "5h {pct}%({reset})"
-seven_day_format   = "7d {pct}%({reset})"
+five_hour_format   = "5h({remaining}% left)"
+seven_day_format   = "7d({remaining}% left)"
 separator          = " "
 warn_threshold     = 70.0
 warn_style         = "bold yellow"
