@@ -186,6 +186,18 @@ pub fn render_used_tokens(ctx: &Context, cfg: &CshipConfig) -> Option<String> {
     let style = sub_cfg
         .and_then(|c| c.style.as_deref())
         .or_else(|| cw_cfg.and_then(|c| c.style.as_deref()));
+    let warn_threshold = sub_cfg
+        .and_then(|c| c.warn_threshold)
+        .or_else(|| cw_cfg.and_then(|c| c.warn_threshold));
+    let warn_style = sub_cfg
+        .and_then(|c| c.warn_style.as_deref())
+        .or_else(|| cw_cfg.and_then(|c| c.warn_style.as_deref()));
+    let critical_threshold = sub_cfg
+        .and_then(|c| c.critical_threshold)
+        .or_else(|| cw_cfg.and_then(|c| c.critical_threshold));
+    let critical_style = sub_cfg
+        .and_then(|c| c.critical_style.as_deref())
+        .or_else(|| cw_cfg.and_then(|c| c.critical_style.as_deref()));
     if let Some(fmt) = sub_cfg
         .and_then(|c| c.format.as_deref())
         .or_else(|| cw_cfg.and_then(|c| c.format.as_deref()))
@@ -193,9 +205,25 @@ pub fn render_used_tokens(ctx: &Context, cfg: &CshipConfig) -> Option<String> {
         let symbol = sub_cfg
             .and_then(|c| c.symbol.as_deref())
             .or_else(|| cw_cfg.and_then(|c| c.symbol.as_deref()));
-        return crate::format::apply_module_format(fmt, Some(&val_str), symbol, style);
+        let effective_style = crate::ansi::resolve_threshold_style(
+            Some(pct),
+            style,
+            warn_threshold,
+            warn_style,
+            critical_threshold,
+            critical_style,
+        );
+        return crate::format::apply_module_format(fmt, Some(&val_str), symbol, effective_style);
     }
-    Some(crate::ansi::apply_style(&val_str, style))
+    Some(crate::ansi::apply_style_with_threshold(
+        &val_str,
+        Some(pct),
+        style,
+        warn_threshold,
+        warn_style,
+        critical_threshold,
+        critical_style,
+    ))
 }
 
 /// Renders `$cship.context_window.size` — reads `context_window_size` field (not `size`).
@@ -1279,5 +1307,140 @@ mod tests {
         };
         let result_explicit = render_used_percentage(&ctx, &cfg_no_thresh);
         assert_eq!(result_default, result_explicit);
+    }
+
+    // --- Story 1.1: used_tokens threshold styling tests ---
+
+    fn ctx_used_tokens(pct: f64) -> Context {
+        // Build a context where used_percentage = pct and current_usage is set
+        // used = 8000 + 5000 + 2000 = 15000, size = 200000
+        Context {
+            context_window: Some(ContextWindow {
+                used_percentage: Some(pct),
+                remaining_percentage: Some(100.0 - pct),
+                context_window_size: Some(200000),
+                current_usage: Some(CurrentUsage {
+                    input_tokens: Some(8000),
+                    cache_creation_input_tokens: Some(5000),
+                    cache_read_input_tokens: Some(2000),
+                    output_tokens: Some(1200),
+                }),
+                ..Default::default()
+            }),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn test_used_tokens_warn_threshold_applied() {
+        // AC1: used_percentage (85) >= warn_threshold (80) → warn_style applied
+        let ctx = ctx_used_tokens(85.0);
+        let cfg = CshipConfig {
+            context_window: Some(ContextWindowConfig {
+                used_tokens: Some(ContextWindowSubfieldConfig {
+                    warn_threshold: Some(80.0),
+                    warn_style: Some("yellow".to_string()),
+                    critical_threshold: Some(95.0),
+                    critical_style: Some("bold red".to_string()),
+                    ..Default::default()
+                }),
+                ..Default::default()
+            }),
+            ..Default::default()
+        };
+        let result = render_used_tokens(&ctx, &cfg).unwrap();
+        assert!(
+            result.contains('\x1b'),
+            "expected ANSI for warn: {result:?}"
+        );
+        assert!(
+            result.contains("85"),
+            "expected percentage value in output: {result:?}"
+        );
+        assert!(
+            result.contains("\x1b[33m"),
+            "expected yellow ANSI code for warn: {result:?}"
+        );
+    }
+
+    #[test]
+    fn test_used_tokens_critical_threshold_applied() {
+        // AC2: used_percentage (97) >= critical_threshold (95) → critical_style applied
+        let ctx = ctx_used_tokens(97.0);
+        let cfg = CshipConfig {
+            context_window: Some(ContextWindowConfig {
+                used_tokens: Some(ContextWindowSubfieldConfig {
+                    warn_threshold: Some(80.0),
+                    warn_style: Some("yellow".to_string()),
+                    critical_threshold: Some(95.0),
+                    critical_style: Some("bold red".to_string()),
+                    ..Default::default()
+                }),
+                ..Default::default()
+            }),
+            ..Default::default()
+        };
+        let result = render_used_tokens(&ctx, &cfg).unwrap();
+        assert!(
+            result.contains('\x1b'),
+            "expected ANSI for critical: {result:?}"
+        );
+        assert!(
+            result.contains("97"),
+            "expected percentage value in output: {result:?}"
+        );
+        assert!(
+            result.contains("\x1b[1;31m"),
+            "expected bold+red ANSI code for critical: {result:?}"
+        );
+    }
+
+    #[test]
+    fn test_used_tokens_no_threshold_config_no_regression() {
+        // AC3: no threshold config → output identical to baseline (no ANSI, same string)
+        let ctx = ctx_used_tokens(35.0);
+        let result_default = render_used_tokens(&ctx, &CshipConfig::default()).unwrap();
+        let cfg_no_thresh = CshipConfig {
+            context_window: Some(ContextWindowConfig {
+                used_tokens: Some(ContextWindowSubfieldConfig {
+                    ..Default::default() // all None
+                }),
+                ..Default::default()
+            }),
+            ..Default::default()
+        };
+        let result_explicit = render_used_tokens(&ctx, &cfg_no_thresh).unwrap();
+        assert_eq!(
+            result_default, result_explicit,
+            "no-threshold config must not change output"
+        );
+        assert!(
+            !result_default.contains('\x1b'),
+            "no ANSI expected without threshold config: {result_default:?}"
+        );
+    }
+
+    #[test]
+    fn test_used_tokens_threshold_parent_fallback() {
+        // AC3 + parent fallback: parent warn_threshold applies when no sub_cfg threshold set
+        let ctx = ctx_used_tokens(85.0);
+        let cfg = CshipConfig {
+            context_window: Some(ContextWindowConfig {
+                warn_threshold: Some(80.0),
+                warn_style: Some("yellow".to_string()),
+                // no per-sub-field config for used_tokens
+                ..Default::default()
+            }),
+            ..Default::default()
+        };
+        let result = render_used_tokens(&ctx, &cfg).unwrap();
+        assert!(
+            result.contains('\x1b'),
+            "expected parent threshold fallback ANSI: {result:?}"
+        );
+        assert!(
+            result.contains("\x1b[33m"),
+            "expected yellow from parent fallback: {result:?}"
+        );
     }
 }
