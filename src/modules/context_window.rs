@@ -166,6 +166,9 @@ pub fn render_remaining_percentage(ctx: &Context, cfg: &CshipConfig) -> Option<S
 /// from `current_usage`, combined with `used_percentage` and `context_window_size`.
 /// Output format: `8%(79k/1000k)`.
 /// Returns `None` when `current_usage` is absent (before first API call).
+// Explicit `match` arms are intentional per CLAUDE.md convention — all absent-data paths use
+// explicit `match`, not `?`. Suppress clippy::question_mark for the silent-None arms.
+#[allow(clippy::question_mark)]
 pub fn render_used_tokens(ctx: &Context, cfg: &CshipConfig) -> Option<String> {
     if is_disabled(cfg) {
         return None;
@@ -175,12 +178,34 @@ pub fn render_used_tokens(ctx: &Context, cfg: &CshipConfig) -> Option<String> {
     if sub_cfg.and_then(|c| c.disabled).unwrap_or(false) {
         return None;
     }
-    let cw = ctx.context_window.as_ref()?;
-    let cu = cw.current_usage.as_ref()?;
+    let cw = match ctx.context_window.as_ref() {
+        Some(cw) => cw,
+        None => {
+            tracing::warn!("cship.context_window.used_tokens: context_window absent from context");
+            return None;
+        }
+    };
+    let cu = match cw.current_usage.as_ref() {
+        Some(cu) => cu,
+        None => {
+            tracing::warn!(
+                "cship.context_window.used_tokens: current_usage absent from context_window"
+            );
+            return None;
+        }
+    };
     let used = cu.input_tokens.unwrap_or(0)
         + cu.cache_creation_input_tokens.unwrap_or(0)
         + cu.cache_read_input_tokens.unwrap_or(0);
-    let size = cw.context_window_size?;
+    let size = match cw.context_window_size {
+        Some(v) => v,
+        None => {
+            tracing::warn!(
+                "cship.context_window.used_tokens: context_window_size absent from context"
+            );
+            return None;
+        }
+    };
     let pct = cw.used_percentage.unwrap_or(0.0);
     let val_str = format!("{:.0}%({}k/{}k)", pct, used / 1000, size / 1000);
     let style = sub_cfg
@@ -893,6 +918,8 @@ mod tests {
             render_total_input_tokens(&ctx, &CshipConfig::default()),
             None
         );
+        // Story 1.2: render_used_tokens must also return None (with tracing::warn!) when context_window absent
+        assert_eq!(render_used_tokens(&ctx, &CshipConfig::default()), None);
     }
 
     // --- AC7: Sub-field threshold tests (Story 9.2) ---
@@ -1442,5 +1469,43 @@ mod tests {
             result.contains("\x1b[33m"),
             "expected yellow from parent fallback: {result:?}"
         );
+    }
+
+    // --- Story 1.2: explicit match + tracing::warn! for render_used_tokens ---
+
+    #[test]
+    fn test_used_tokens_absent_current_usage_returns_none() {
+        // AC1: current_usage is None → tracing::warn! emitted, returns None
+        let ctx = Context {
+            context_window: Some(ContextWindow {
+                used_percentage: Some(50.0),
+                context_window_size: Some(200000),
+                current_usage: None,
+                ..Default::default()
+            }),
+            ..Default::default()
+        };
+        assert_eq!(render_used_tokens(&ctx, &CshipConfig::default()), None);
+    }
+
+    #[test]
+    fn test_used_tokens_absent_context_window_size_returns_none() {
+        // AC2: context_window_size is None when current_usage exists → tracing::warn! emitted
+        // (not assertable in unit tests without a tracing subscriber) but function must return None
+        let ctx = Context {
+            context_window: Some(ContextWindow {
+                used_percentage: Some(50.0),
+                context_window_size: None,
+                current_usage: Some(CurrentUsage {
+                    input_tokens: Some(8000),
+                    cache_creation_input_tokens: Some(0),
+                    cache_read_input_tokens: Some(0),
+                    output_tokens: Some(0),
+                }),
+                ..Default::default()
+            }),
+            ..Default::default()
+        };
+        assert_eq!(render_used_tokens(&ctx, &CshipConfig::default()), None);
     }
 }
