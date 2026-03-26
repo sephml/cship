@@ -109,7 +109,8 @@ where
 
 /// Extract usage limits from the `rate_limits` field Claude Code sends via stdin.
 /// This avoids the OAuth API call entirely when the data is available.
-/// `resets_at` is a Unix epoch in the stdin payload; convert to ISO 8601 for `format_time_until`.
+/// `resets_at` is a Unix epoch in the stdin payload; stored directly to avoid a
+/// round-trip through ISO 8601 formatting and re-parsing.
 fn data_from_stdin_rate_limits(ctx: &Context) -> Option<UsageLimitsData> {
     let rl = ctx.rate_limits.as_ref()?;
     let five = rl.five_hour.as_ref()?;
@@ -117,38 +118,14 @@ fn data_from_stdin_rate_limits(ctx: &Context) -> Option<UsageLimitsData> {
     let five_pct = five.used_percentage?;
     let seven_pct = seven.used_percentage?;
 
-    fn epoch_to_iso(epoch: Option<u64>) -> String {
-        match epoch {
-            Some(e) => {
-                let days_since_epoch = (e / 86400) as i64;
-                let remaining = e % 86400;
-                let hour = remaining / 3600;
-                let min = (remaining % 3600) / 60;
-                let sec = remaining % 60;
-                let z = days_since_epoch + 719468;
-                let era = z.div_euclid(146097);
-                let doe = z - era * 146097;
-                let yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365;
-                let y = yoe + era * 400;
-                let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
-                let mp = (5 * doy + 2) / 153;
-                let d = doy - (153 * mp + 2) / 5 + 1;
-                let m = if mp < 10 { mp + 3 } else { mp - 9 };
-                let y = if m <= 2 { y + 1 } else { y };
-                format!(
-                    "{:04}-{:02}-{:02}T{:02}:{:02}:{:02}Z",
-                    y, m, d, hour, min, sec
-                )
-            }
-            None => String::new(),
-        }
-    }
-
     Some(UsageLimitsData {
         five_hour_pct: five_pct,
         seven_day_pct: seven_pct,
-        five_hour_resets_at: epoch_to_iso(five.resets_at),
-        seven_day_resets_at: epoch_to_iso(seven.resets_at),
+        // ISO string fields unused on the stdin path — epoch fields carry the reset time.
+        five_hour_resets_at: String::new(),
+        seven_day_resets_at: String::new(),
+        five_hour_resets_at_epoch: five.resets_at,
+        seven_day_resets_at_epoch: seven.resets_at,
     })
 }
 
@@ -166,10 +143,16 @@ fn data_from_stdin_rate_limits(ctx: &Context) -> Option<UsageLimitsData> {
 fn format_output(data: &UsageLimitsData, cfg: &UsageLimitsConfig) -> String {
     let five_h_pct = format!("{:.0}", data.five_hour_pct);
     let five_h_remaining = format!("{:.0}", (100.0 - data.five_hour_pct).max(0.0));
-    let five_h_reset = format_time_until(&data.five_hour_resets_at);
+    let five_h_reset = match data.five_hour_resets_at_epoch {
+        Some(epoch) => format_time_until_epoch(epoch),
+        None => format_time_until(&data.five_hour_resets_at),
+    };
     let seven_d_pct = format!("{:.0}", data.seven_day_pct);
     let seven_d_remaining = format!("{:.0}", (100.0 - data.seven_day_pct).max(0.0));
-    let seven_d_reset = format_time_until(&data.seven_day_resets_at);
+    let seven_d_reset = match data.seven_day_resets_at_epoch {
+        Some(epoch) => format_time_until_epoch(epoch),
+        None => format_time_until(&data.seven_day_resets_at),
+    };
 
     let five_h_fmt = cfg
         .five_hour_format
@@ -191,6 +174,36 @@ fn format_output(data: &UsageLimitsData, cfg: &UsageLimitsConfig) -> String {
         .replace("{reset}", &seven_d_reset);
 
     format!("{five_h_part}{sep}{seven_d_part}")
+}
+
+/// Convert a Unix epoch reset timestamp to a human-readable time-until string.
+///
+/// This is the epoch-native equivalent of `format_time_until`, used on the stdin path
+/// to avoid a round-trip through ISO 8601 formatting and re-parsing.
+///
+/// - Past timestamp → `"now"`
+/// - < 1 hour → `"45m"`
+/// - < 1 day → `"4h12m"`
+/// - >= 1 day → `"3d2h"`
+fn format_time_until_epoch(reset_epoch: u64) -> String {
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+    if now >= reset_epoch {
+        return "now".to_string();
+    }
+    let secs = reset_epoch - now;
+    let mins = secs / 60;
+    let hours = mins / 60;
+    let days = hours / 24;
+    if days > 0 {
+        format!("{}d{}h", days, hours % 24)
+    } else if hours > 0 {
+        format!("{}h{}m", hours, mins % 60)
+    } else {
+        format!("{}m", mins)
+    }
 }
 
 /// Convert an ISO 8601 reset timestamp to a human-readable time-until string.
@@ -298,6 +311,8 @@ mod tests {
             seven_day_pct: 45.1,
             five_hour_resets_at: "2099-01-01T00:00:00Z".into(),
             seven_day_resets_at: "2099-01-01T00:00:00Z".into(),
+            five_hour_resets_at_epoch: None,
+            seven_day_resets_at_epoch: None,
         };
         crate::cache::write_usage_limits(&transcript, &data, 60);
 
@@ -321,6 +336,8 @@ mod tests {
             seven_day_pct: 10.0,
             five_hour_resets_at: "2099-01-01T00:00:00Z".into(),
             seven_day_resets_at: "2099-01-01T00:00:00Z".into(),
+            five_hour_resets_at_epoch: None,
+            seven_day_resets_at_epoch: None,
         };
         crate::cache::write_usage_limits(&transcript, &data, 60);
 
@@ -352,6 +369,8 @@ mod tests {
             seven_day_pct: 20.0,
             five_hour_resets_at: "2099-01-01T00:00:00Z".into(),
             seven_day_resets_at: "2099-01-01T00:00:00Z".into(),
+            five_hour_resets_at_epoch: None,
+            seven_day_resets_at_epoch: None,
         };
         crate::cache::write_usage_limits(&transcript, &data, 60);
 
@@ -388,6 +407,8 @@ mod tests {
             seven_day_pct: 85.0,
             five_hour_resets_at: "2099-01-01T00:00:00Z".into(),
             seven_day_resets_at: "2099-01-01T00:00:00Z".into(),
+            five_hour_resets_at_epoch: None,
+            seven_day_resets_at_epoch: None,
         };
         crate::cache::write_usage_limits(&transcript, &data, 60);
 
@@ -424,6 +445,8 @@ mod tests {
             seven_day_pct: 30.0,
             five_hour_resets_at: "2099-01-01T00:00:00Z".into(),
             seven_day_resets_at: "2099-01-01T00:00:00Z".into(),
+            five_hour_resets_at_epoch: None,
+            seven_day_resets_at_epoch: None,
         };
         crate::cache::write_usage_limits(&transcript, &data, 60);
         // Verify read_usage_limits(allow_stale=true) works even after TTL would normally expire
@@ -442,6 +465,8 @@ mod tests {
             seven_day_pct: 30.0,
             five_hour_resets_at: "2099-01-01T00:00:00Z".into(),
             seven_day_resets_at: "2099-01-01T00:00:00Z".into(),
+            five_hour_resets_at_epoch: None,
+            seven_day_resets_at_epoch: None,
         };
         let cloned = expected.clone();
         let result = fetch_with_timeout(move || Ok(cloned));
@@ -465,6 +490,8 @@ mod tests {
                 seven_day_pct: 0.0,
                 five_hour_resets_at: String::new(),
                 seven_day_resets_at: String::new(),
+                five_hour_resets_at_epoch: None,
+                seven_day_resets_at_epoch: None,
             })
         });
         assert!(result.is_none());
@@ -549,6 +576,8 @@ mod tests {
             seven_day_pct: 45.1,
             five_hour_resets_at: "2099-01-01T00:00:00Z".into(),
             seven_day_resets_at: "2099-01-01T00:00:00Z".into(),
+            five_hour_resets_at_epoch: None,
+            seven_day_resets_at_epoch: None,
         };
         let cfg = UsageLimitsConfig::default();
         let result = format_output(&data, &cfg);
@@ -565,6 +594,8 @@ mod tests {
             seven_day_pct: 10.0,
             five_hour_resets_at: "2099-01-01T00:00:00Z".into(),
             seven_day_resets_at: "2099-01-01T00:00:00Z".into(),
+            five_hour_resets_at_epoch: None,
+            seven_day_resets_at_epoch: None,
         };
         let cfg = UsageLimitsConfig {
             five_hour_format: Some("⏱: {pct}%({reset})".into()),
@@ -585,6 +616,8 @@ mod tests {
             seven_day_pct: 45.0,
             five_hour_resets_at: "2099-01-01T00:00:00Z".into(),
             seven_day_resets_at: "2099-01-01T00:00:00Z".into(),
+            five_hour_resets_at_epoch: None,
+            seven_day_resets_at_epoch: None,
         };
         let cfg = UsageLimitsConfig {
             seven_day_format: Some("7d {pct}%/{reset}".into()),
@@ -605,6 +638,8 @@ mod tests {
             seven_day_pct: 20.0,
             five_hour_resets_at: "2099-01-01T00:00:00Z".into(),
             seven_day_resets_at: "2099-01-01T00:00:00Z".into(),
+            five_hour_resets_at_epoch: None,
+            seven_day_resets_at_epoch: None,
         };
         let cfg = UsageLimitsConfig {
             separator: Some(" — ".into()),
@@ -629,6 +664,8 @@ mod tests {
             seven_day_pct: 50.0,
             five_hour_resets_at: "2099-01-01T00:00:00Z".into(),
             seven_day_resets_at: "2099-01-01T00:00:00Z".into(),
+            five_hour_resets_at_epoch: None,
+            seven_day_resets_at_epoch: None,
         };
         let cfg = UsageLimitsConfig {
             five_hour_format: Some("{pct}%".into()),
@@ -650,6 +687,8 @@ mod tests {
             seven_day_pct: 10.0,
             five_hour_resets_at: "2099-01-01T00:00:00Z".into(),
             seven_day_resets_at: "2099-01-01T00:00:00Z".into(),
+            five_hour_resets_at_epoch: None,
+            seven_day_resets_at_epoch: None,
         };
         crate::cache::write_usage_limits(&transcript, &data, 60);
 
@@ -677,6 +716,118 @@ mod tests {
         assert!(
             result.contains("75%"),
             "custom format content should be present: {result:?}"
+        );
+    }
+
+    // ── stdin rate limits path tests ──────────────────────────────────────────
+
+    #[test]
+    fn test_data_from_stdin_rate_limits_uses_epoch_directly() {
+        // Verify no ISO string is produced — five_hour_resets_at remains empty
+        // and five_hour_resets_at_epoch carries the raw epoch value.
+        let ctx = Context {
+            rate_limits: Some(crate::context::RateLimits {
+                five_hour: Some(crate::context::RateLimitPeriod {
+                    used_percentage: Some(23.0),
+                    resets_at: Some(9_999_999_999),
+                }),
+                seven_day: Some(crate::context::RateLimitPeriod {
+                    used_percentage: Some(45.0),
+                    resets_at: Some(9_999_999_999),
+                }),
+            }),
+            ..Default::default()
+        };
+        let data = data_from_stdin_rate_limits(&ctx).unwrap();
+        assert_eq!(
+            data.five_hour_resets_at, "",
+            "ISO field must be empty on stdin path"
+        );
+        assert_eq!(
+            data.seven_day_resets_at, "",
+            "ISO field must be empty on stdin path"
+        );
+        assert_eq!(
+            data.five_hour_resets_at_epoch,
+            Some(9_999_999_999),
+            "epoch field must carry raw resets_at value"
+        );
+        assert_eq!(
+            data.seven_day_resets_at_epoch,
+            Some(9_999_999_999),
+            "epoch field must carry raw resets_at value"
+        );
+    }
+
+    #[test]
+    fn test_render_stdin_rate_limits_produces_output() {
+        // render() uses stdin path (no transcript_path needed)
+        let ctx = Context {
+            rate_limits: Some(crate::context::RateLimits {
+                five_hour: Some(crate::context::RateLimitPeriod {
+                    used_percentage: Some(23.0),
+                    resets_at: Some(9_999_999_999),
+                }),
+                seven_day: Some(crate::context::RateLimitPeriod {
+                    used_percentage: Some(45.0),
+                    resets_at: Some(9_999_999_999),
+                }),
+            }),
+            ..Default::default()
+        };
+        let result = render(&ctx, &CshipConfig::default()).unwrap();
+        assert!(result.contains("5h:"), "expected 5h prefix: {result:?}");
+        assert!(result.contains("7d:"), "expected 7d prefix: {result:?}");
+        assert!(result.contains("23%"), "expected five_hour_pct: {result:?}");
+        assert!(result.contains("45%"), "expected seven_day_pct: {result:?}");
+    }
+
+    #[test]
+    fn test_format_time_until_epoch_past_returns_now() {
+        // A past epoch (e.g., Unix epoch 0) should return "now"
+        assert_eq!(format_time_until_epoch(0), "now");
+        assert_eq!(format_time_until_epoch(1), "now");
+    }
+
+    #[test]
+    fn test_format_time_until_epoch_hours_minutes() {
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+        let future_epoch = now + 4 * 3600 + 12 * 60 + 30; // ~4h12m from now
+        let result = format_time_until_epoch(future_epoch);
+        assert!(
+            result.contains('h') && result.contains('m'),
+            "expected Xh Ym format: {result}"
+        );
+    }
+
+    #[test]
+    fn test_format_time_until_epoch_days_hours() {
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+        let future_epoch = now + 3 * 86400 + 2 * 3600 + 30; // ~3d2h from now
+        let result = format_time_until_epoch(future_epoch);
+        assert!(
+            result.contains('d') && result.contains('h'),
+            "expected Xd Yh format: {result}"
+        );
+    }
+
+    #[test]
+    fn test_format_time_until_epoch_minutes_only() {
+        let now = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+        let future_epoch = now + 45 * 60 + 30; // ~45m from now
+        let result = format_time_until_epoch(future_epoch);
+        assert!(
+            result.ends_with('m') && !result.contains('h'),
+            "expected Xm format: {result}"
         );
     }
 }
