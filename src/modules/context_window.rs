@@ -181,9 +181,7 @@ pub fn render_used_tokens(ctx: &Context, cfg: &CshipConfig) -> Option<String> {
     let cw = match ctx.context_window.as_ref() {
         Some(cw) => cw,
         None => {
-            tracing::warn!(
-                "cship.context_window.used_tokens: context_window absent from context"
-            );
+            tracing::warn!("cship.context_window.used_tokens: context_window absent from context");
             return None;
         }
     };
