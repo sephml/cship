@@ -207,7 +207,12 @@ pub fn render_used_tokens(ctx: &Context, cfg: &CshipConfig) -> Option<String> {
         }
     };
     let pct = cw.used_percentage.unwrap_or(0.0);
-    let val_str = format!("{:.0}%({}k/{}k)", pct, (used + 500) / 1000, (size + 500) / 1000);
+    let val_str = format!(
+        "{:.0}%({}k/{}k)",
+        pct,
+        (used + 500) / 1000,
+        (size + 500) / 1000
+    );
     let style = sub_cfg
         .and_then(|c| c.style.as_deref())
         .or_else(|| cw_cfg.and_then(|c| c.style.as_deref()));
@@ -1528,7 +1533,10 @@ mod tests {
             ..Default::default()
         };
         let result = render_used_tokens(&ctx, &CshipConfig::default()).unwrap();
-        assert!(result.contains("1k/200k"), "expected '1k/200k' in: {result:?}");
+        assert!(
+            result.contains("1k/200k"),
+            "expected '1k/200k' in: {result:?}"
+        );
     }
 
     #[test]
@@ -1550,6 +1558,9 @@ mod tests {
             ..Default::default()
         };
         let result = render_used_tokens(&ctx, &CshipConfig::default()).unwrap();
-        assert!(result.contains("0k/200k"), "expected '0k/200k' in: {result:?}");
+        assert!(
+            result.contains("0k/200k"),
+            "expected '0k/200k' in: {result:?}"
+        );
     }
 }
