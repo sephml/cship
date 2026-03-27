@@ -3,7 +3,7 @@
 /// Output format: `{symbol}{display_name}` with optional ANSI style applied.
 /// Returns `None` if `disabled = true` or if `model.display_name` is absent.
 ///
-/// [Source: epics.md#Story 1.4, architecture.md#Module System Architecture]
+/// Source: epics.md#Story 1.4, architecture.md#Module System Architecture
 pub fn render(ctx: &crate::context::Context, cfg: &crate::config::CshipConfig) -> Option<String> {
     let model_cfg = cfg.model.as_ref();
 

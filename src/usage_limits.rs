@@ -8,7 +8,7 @@
 
 /// Parsed usage limits returned by the Anthropic API.
 /// Field names use the project's flat convention; serde mapping is handled via
-/// an intermediate [`ApiResponse`] struct during deserialization.
+/// an intermediate `ApiResponse` struct during deserialization.
 ///
 /// The `*_epoch` fields are set only on the stdin path (Claude Code sends `resets_at` as a
 /// Unix epoch directly). On the OAuth/cache path these fields are `None` and the ISO 8601
