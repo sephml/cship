@@ -843,7 +843,10 @@ mod tests {
             ..Default::default()
         };
         let result = data_from_stdin_rate_limits(&ctx);
-        assert!(result.is_some(), "should return Some with only five_hour present");
+        assert!(
+            result.is_some(),
+            "should return Some with only five_hour present"
+        );
         let data = result.unwrap();
         assert!(
             (data.five_hour_pct - 42.0).abs() < f64::EPSILON,
