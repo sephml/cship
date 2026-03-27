@@ -1007,8 +1007,14 @@ mod tests {
         let result = render(&ctx, &CshipConfig::default());
         assert!(result.is_some(), "stdin path must not need transcript_path");
         let output = result.unwrap();
-        assert!(output.contains("40%"), "expected five_hour_pct 40%: {output:?}");
-        assert!(output.contains("60%"), "expected seven_day_pct 60%: {output:?}");
+        assert!(
+            output.contains("40%"),
+            "expected five_hour_pct 40%: {output:?}"
+        );
+        assert!(
+            output.contains("60%"),
+            "expected seven_day_pct 60%: {output:?}"
+        );
     }
 
     #[test]
@@ -1043,8 +1049,14 @@ mod tests {
         };
         let result = render(&ctx, &CshipConfig::default()).unwrap();
         // Stdin value (23%) must win over cache value (99%)
-        assert!(result.contains("23%"), "stdin must override cache: {result:?}");
-        assert!(!result.contains("99%"), "cache value must not appear: {result:?}");
+        assert!(
+            result.contains("23%"),
+            "stdin must override cache: {result:?}"
+        );
+        assert!(
+            !result.contains("99%"),
+            "cache value must not appear: {result:?}"
+        );
     }
 
     #[test]

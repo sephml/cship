@@ -981,8 +981,14 @@ fn test_usage_limits_stdin_renders_without_transcript_path() {
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(stdout.contains("5h:"), "expected 5h prefix: {stdout:?}");
     assert!(stdout.contains("7d:"), "expected 7d prefix: {stdout:?}");
-    assert!(stdout.contains("42%"), "expected five_hour_pct 42%: {stdout:?}");
-    assert!(stdout.contains("75%"), "expected seven_day_pct 75%: {stdout:?}");
+    assert!(
+        stdout.contains("42%"),
+        "expected five_hour_pct 42%: {stdout:?}"
+    );
+    assert!(
+        stdout.contains("75%"),
+        "expected seven_day_pct 75%: {stdout:?}"
+    );
 }
 
 // ── Story 7.6: Starship-compatible format field integration tests ──────────
