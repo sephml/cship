@@ -19,7 +19,9 @@ pub fn render(ctx: &Context, cfg: &CshipConfig) -> Option<String> {
         Some(cw) => match cw.used_percentage {
             Some(v) => (v, false),
             None => {
-                tracing::debug!("cship.context_bar: context_window present but used_percentage absent; rendering empty bar");
+                tracing::debug!(
+                    "cship.context_bar: context_window present but used_percentage absent; rendering empty bar"
+                );
                 (0.0f64, true)
             }
         },
@@ -44,7 +46,12 @@ pub fn render(ctx: &Context, cfg: &CshipConfig) -> Option<String> {
     if is_empty {
         let empty_style = bar_cfg.and_then(|c| c.empty_style.as_deref());
         if let Some(fmt) = bar_cfg.and_then(|c| c.format.as_deref()) {
-            return crate::format::apply_module_format(fmt, Some(&bar_content), symbol, empty_style);
+            return crate::format::apply_module_format(
+                fmt,
+                Some(&bar_content),
+                symbol,
+                empty_style,
+            );
         }
         return Some(crate::ansi::apply_style(&bar_content, empty_style));
     }
@@ -137,8 +144,7 @@ mod tests {
         let result = render(&ctx, &CshipConfig::default()).unwrap();
         let empty_count: usize = result.chars().filter(|&c| c == '░').count();
         assert_eq!(
-            empty_count,
-            DEFAULT_BAR_WIDTH as usize,
+            empty_count, DEFAULT_BAR_WIDTH as usize,
             "all chars should be empty: {result:?}"
         );
         assert!(result.contains("0%"), "should show 0%: {result:?}");
