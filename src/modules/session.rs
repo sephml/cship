@@ -1,7 +1,7 @@
 //! Session identity modules: cwd, session_id, transcript_path, version, output_style.
 //!
 //! All 5 fields share ONE `SessionConfig` (disabled/symbol/style).
-//! [Source: epics.md#Story 2.4, architecture.md#Module System Architecture]
+//! Source: epics.md#Story 2.4, architecture.md#Module System Architecture
 
 /// Renders `$cship.cwd` — current working directory from Context.
 pub fn render_cwd(

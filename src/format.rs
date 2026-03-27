@@ -8,7 +8,7 @@
 //! - `(content)` — conditional group: renders as empty if `$value` is None
 //! - Literal text — preserved verbatim
 //!
-//! [Source: architecture.md#Core Architectural Decisions, epics.md#Story 2.5]
+//! Source: architecture.md#Core Architectural Decisions, epics.md#Story 2.5
 
 /// Apply a per-module format string.
 ///

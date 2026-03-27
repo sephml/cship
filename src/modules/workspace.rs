@@ -1,7 +1,7 @@
 //! Workspace modules: workspace.current_dir, workspace.project_dir.
 //!
 //! Both fields share ONE `WorkspaceConfig` (disabled/symbol/style).
-//! [Source: epics.md#Story 2.4, architecture.md#Module System Architecture]
+//! Source: epics.md#Story 2.4, architecture.md#Module System Architecture
 
 /// Renders `$cship.workspace.current_dir` — workspace current directory from Context.
 pub fn render_current_dir(

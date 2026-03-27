@@ -7,7 +7,7 @@ const DEFAULT_BAR_WIDTH: u32 = 10;
 /// Format: `{bar}{used_percentage:.0}%` e.g. `███░░░░░░░35%`
 /// Bar width is configurable via `[cship.context_bar].width` (default 10).
 ///
-/// [Source: epics.md#Story 2.2, prd.md#FR8]
+/// Source: epics.md#Story 2.2, prd.md#FR8
 pub fn render(ctx: &Context, cfg: &CshipConfig) -> Option<String> {
     let bar_cfg = cfg.context_bar.as_ref();
 
