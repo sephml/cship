@@ -20,8 +20,8 @@ $SETTINGS    = Join-Path $env:APPDATA "Claude\settings.json"
 # --- Arch detection ---
 $arch = $env:PROCESSOR_ARCHITECTURE
 # WOW64: 32-bit PowerShell on 64-bit OS reports x86; check redirection variable
-if ($arch -eq "x86" -and $env:PROCESSOR_ARCHITEW6432 -eq "AMD64") {
-    $arch = "AMD64"
+if ($arch -eq "x86" -and $env:PROCESSOR_ARCHITEW6432) {
+    $arch = $env:PROCESSOR_ARCHITEW6432
 }
 if ($arch -eq "AMD64") {
     $TARGET = "x86_64-pc-windows-msvc"
