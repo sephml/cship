@@ -28,10 +28,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [1.2.0] - 2026-03-14
 
 ### Added
-- Configurable TTL for usage limits cache (`ttl` field in `[cship.usage_limits]`)
-
-### Fixed
-- GitHub Actions workflow for external PR secret access
+- Added configurable cache TTL for usage limits — set `ttl` in `[cship.usage_limits]` to control how long API results are cached ([@RedesignedRobot](https://github.com/RedesignedRobot))
 
 ## [1.1.2] - 2026-03-13
 
