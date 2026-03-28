@@ -16,12 +16,29 @@ pub fn run() {
 
 fn remove_binary(home: &std::path::Path) {
     #[cfg(not(target_os = "windows"))]
-    let candidates = [home.join(".local/bin/cship"), home.join(".cargo/bin/cship")];
+    let candidates = vec![home.join(".local/bin/cship"), home.join(".cargo/bin/cship")];
     #[cfg(target_os = "windows")]
-    let candidates = [
-        home.join(".cargo/bin/cship.exe"),
-        home.join(r".local\bin\cship.exe"),
-    ];
+    let candidates = {
+        let mut v: Vec<std::path::PathBuf> = Vec::new();
+        match std::env::var("LOCALAPPDATA") {
+            Ok(local_app_data) => {
+                v.push(
+                    std::path::Path::new(&local_app_data)
+                        .join("Programs")
+                        .join("cship")
+                        .join("cship.exe"),
+                );
+            }
+            Err(_) => {
+                tracing::warn!(
+                    "LOCALAPPDATA env var not set; skipping %LOCALAPPDATA%\\Programs\\cship\\cship.exe candidate"
+                );
+            }
+        }
+        v.push(home.join(".cargo/bin/cship.exe"));
+        v.push(home.join(r".local\bin\cship.exe"));
+        v
+    };
     for bin in candidates {
         if bin.exists() {
             match std::fs::remove_file(&bin) {
@@ -35,7 +52,21 @@ fn remove_binary(home: &std::path::Path) {
 }
 
 fn remove_statusline_from_settings(home: &std::path::Path) {
+    #[cfg(target_os = "windows")]
+    let path = match std::env::var("APPDATA") {
+        Ok(app_data) => std::path::Path::new(&app_data)
+            .join("Claude")
+            .join("settings.json"),
+        Err(_) => {
+            tracing::warn!(
+                "APPDATA env var not set; falling back to ~/.claude/settings.json for settings path"
+            );
+            home.join(".claude/settings.json")
+        }
+    };
+    #[cfg(not(target_os = "windows"))]
     let path = home.join(".claude/settings.json");
+
     if !path.exists() {
         println!("settings.json not found — skipping.");
         return;
@@ -131,9 +162,33 @@ mod tests {
             let cargo_path = cargo_bin.join(bin_name);
             std::fs::write(&cargo_path, b"fake binary").unwrap();
 
+            // On Windows, also test the LOCALAPPDATA candidate path
+            #[cfg(target_os = "windows")]
+            let (tmp_local, localappdata_bin_path) = {
+                let tmp = tempfile::tempdir().unwrap();
+                let programs_dir = tmp.path().join("Programs").join("cship");
+                std::fs::create_dir_all(&programs_dir).unwrap();
+                let bin_path = programs_dir.join("cship.exe");
+                std::fs::write(&bin_path, b"fake binary").unwrap();
+                // Point LOCALAPPDATA to our temp dir so remove_binary finds it
+                unsafe { std::env::set_var("LOCALAPPDATA", tmp.path()) };
+                (tmp, bin_path)
+            };
+
             remove_binary(home);
+
             assert!(!local_path.exists());
             assert!(!cargo_path.exists());
+
+            #[cfg(target_os = "windows")]
+            {
+                assert!(
+                    !localappdata_bin_path.exists(),
+                    "LOCALAPPDATA binary should be removed on Windows"
+                );
+                unsafe { std::env::remove_var("LOCALAPPDATA") };
+                drop(tmp_local);
+            }
         });
     }
 
