@@ -67,7 +67,7 @@ After installing with `cargo` on **Windows**, wire the statusline manually in `%
 
 ## ⚙️ Configuration
 
-- The default config file is `~/.config/cship.toml`. 
+- The default config file is `~/.config/cship.toml` (on Windows: `%USERPROFILE%\.config\cship.toml`).
 - You can also place a `cship.toml` in your project root for per-project overrides. 
 - The `lines` array defines the rows of your statusline. 
 - Each element is a format string mixing `$cship.<module>` tokens (native cship modules) with Starship module tokens (e.g. `$git_branch`). 

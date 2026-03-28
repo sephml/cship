@@ -108,7 +108,7 @@ Browse [nerdfonts.com/cheat-sheet](https://www.nerdfonts.com/cheat-sheet) to fin
 
 ## Quick Start
 
-Create `~/.config/cship.toml`:
+Create `~/.config/cship.toml` (on Windows: `%USERPROFILE%\.config\cship.toml`):
 
 ```toml
 [cship]
