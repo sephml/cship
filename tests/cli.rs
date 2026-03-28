@@ -824,20 +824,21 @@ fn test_native_renders_alongside_passthrough_not_installed() {
 
 // ── Story 4.2: Cache and CSHIP_* env var integration tests ────────────────
 
+// Unix-only: faking a `starship` binary requires a +x shell script, which has no
+// simple equivalent on Windows (Command::new resolves only .exe, not .cmd/.bat).
+#[cfg(unix)]
 #[test]
 fn test_passthrough_env_vars_injected_via_cship_model() {
     // Create a fake starship script that echoes $CSHIP_MODEL to stdout.
     // Uses .env("PATH", ...) on the cship subprocess rather than mutating
     // the test process's global PATH — safe for parallel test execution.
     use std::fs;
-    #[cfg(unix)]
     use std::os::unix::fs::PermissionsExt;
 
     let dir = std::env::temp_dir().join("cship_inttest_cship_env");
     fs::create_dir_all(&dir).unwrap();
     let script = dir.join("starship");
     fs::write(&script, "#!/bin/sh\nprintf '%s' \"$CSHIP_MODEL\"\n").unwrap();
-    #[cfg(unix)]
     fs::set_permissions(&script, fs::Permissions::from_mode(0o755)).unwrap();
 
     let json = r#"{"session_id":"test","cwd":"/tmp","transcript_path":"/tmp/cship_inttest_tp.jsonl","version":"1.0","exceeds_200k_tokens":false,"model":{"id":"claude-opus-4-6","display_name":"IntTestModel"},"workspace":{"current_dir":"/tmp","project_dir":"/tmp"},"output_style":{"name":"default"},"cost":{"total_cost_usd":0.0}}"#;

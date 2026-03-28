@@ -355,18 +355,20 @@ mod tests {
         assert!(result.is_none());
     }
 
+    // Unix-only: faking a `starship` binary requires a +x shell script, which has no
+    // simple equivalent on Windows (Command::new resolves only .exe, not .cmd/.bat).
+    // The env-injection logic itself (cmd.env) is platform-independent.
+    #[cfg(unix)]
     #[test]
     fn test_render_passthrough_injects_cship_model_env_var() {
         use std::fs;
-        #[cfg(unix)]
         use std::os::unix::fs::PermissionsExt;
 
         let dir = std::env::temp_dir().join("cship_test_cship_env");
         fs::create_dir_all(&dir).unwrap();
+
         let script = dir.join("starship");
-        // Script: print CSHIP_MODEL env var, exit 0
         fs::write(&script, "#!/bin/sh\nprintf '%s' \"$CSHIP_MODEL\"\n").unwrap();
-        #[cfg(unix)]
         fs::set_permissions(&script, fs::Permissions::from_mode(0o755)).unwrap();
 
         let _guard = PATH_MUTEX.lock().unwrap();
