@@ -12,6 +12,7 @@
 - stdout owned by `main.rs` only; all module diagnostics via `tracing::*` macros; no `eprintln!` anywhere
 - Exception: CLI-action subcommands (e.g. `uninstall`, `explain`) may use `println!` directly — the stdout rule applies to the rendering pipeline only
 - All config structs: `#[derive(Debug, Deserialize, Default)]`, all fields `pub Option<T>`
+- Never add `deny_unknown_fields` to any struct — omitted intentionally on both `Context` and config structs so future Claude Code versions can add fields without breaking deserialization
 
 ## Project Structure
 - Adding a native module: create `src/modules/{name}.rs` + update `src/modules/mod.rs` only (2 files max)

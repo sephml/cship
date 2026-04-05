@@ -49,6 +49,7 @@ Most documentation lives in `docs/`; `CONTRIBUTING.md` at the repo root mirrors 
 - **New module or config field** — add the config option to `docs/configuration.md`. If the module has non-obvious UX, add a `docs/faq.md` entry too.
 - **Removed module or config field** — delete or mark deprecated the corresponding entry in `docs/configuration.md`.
 - **Behaviour change** — update any affected section in `docs/configuration.md` or `docs/faq.md`.
+- **New showcase or example** — add the `cship.toml` config block to `docs/showcase.md` and place any screenshot or GIF in `docs/examples/`.
 - **This guide** — `CONTRIBUTING.md` (repo root) and `docs/contributing.md` are kept in sync manually; if you edit either for any reason, update the other to match.
 
 ## Opening a PR
