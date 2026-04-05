@@ -34,6 +34,13 @@ See the non-negotiable code patterns in `CLAUDE.md`.
 - Module signature: `pub fn render(ctx: &Context, cfg: &CshipConfig) -> Option<String>`
 - All config structs go in `src/config.rs` with `#[derive(Debug, Deserialize, Default)]` and `pub Option<T>` fields.
 
+## Developing new features
+
+This project is built with [BMAD](https://github.com/bmad-code-org/BMAD-METHOD). The recommended workflow for new features is:
+
+1. Install BMAD in this repo.
+2. Run `/bmad-quick-dev` with a GitHub issue URL or a description of your change — it guides you from intent through spec, implementation, and review.
+
 ## Opening a PR
 
 1. Make sure all four checks above pass.
