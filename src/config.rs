@@ -19,6 +19,7 @@ pub struct CshipConfig {
     pub session: Option<SessionConfig>,
     pub workspace: Option<WorkspaceConfig>,
     pub usage_limits: Option<UsageLimitsConfig>,
+    pub peak_usage: Option<PeakUsageConfig>,
     pub starship_prompt: Option<StarshipPromptConfig>,
 }
 
@@ -264,6 +265,21 @@ pub struct UsageLimitsConfig {
     pub five_hour_format: Option<String>,
     pub seven_day_format: Option<String>,
     pub separator: Option<String>,
+}
+
+/// Configuration for `[cship.peak_usage]` — peak-time indicator.
+/// Shows when Anthropic's peak-time rate limiting is likely active
+/// based on current time relative to US Pacific business hours.
+#[derive(Debug, Deserialize, Default)]
+pub struct PeakUsageConfig {
+    pub disabled: Option<bool>,
+    pub symbol: Option<String>,
+    pub style: Option<String>,
+    pub format: Option<String>,
+    /// Start of peak window in US Pacific time (0–23). Default: 7.
+    pub start_hour: Option<u32>,
+    /// End of peak window in US Pacific time (0–23). Default: 17.
+    pub end_hour: Option<u32>,
 }
 
 /// Configuration for `[cship.starship_prompt]` — renders full starship prompt as a token.
