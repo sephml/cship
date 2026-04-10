@@ -168,24 +168,46 @@ fn data_from_stdin_rate_limits(ctx: &Context) -> Option<UsageLimitsData> {
 /// - `{pct}` — percentage used as integer (e.g. `"23"`)
 /// - `{remaining}` — percentage remaining as integer (e.g. `"77"`)
 /// - `{reset}` — time-until-reset string (e.g. `"4h12m"`)
+/// - `{pace}` — signed pace string (e.g. `"+20%"`, `"-15%"`, `"?"`)
+///
+/// Per-model breakdowns (opus, sonnet, cowork, oauth_apps) are appended when
+/// the API returns non-null data. Extra usage is appended when enabled.
 ///
 /// Defaults (backwards compatible with pre-7.2 hardcoded output):
 /// - `five_hour_format`: `"5h: {pct}% resets in {reset}"`
 /// - `seven_day_format`: `"7d: {pct}% resets in {reset}"`
 /// - `separator`: `" | "`
 fn format_output(data: &UsageLimitsData, cfg: &UsageLimitsConfig) -> String {
+    let sep = cfg.separator.as_deref().unwrap_or(" | ");
+
+    // --- Five-hour part ---
     let five_h_pct = format!("{:.0}", data.five_hour_pct);
     let five_h_remaining = format!("{:.0}", (100.0 - data.five_hour_pct).max(0.0));
     let five_h_reset = match data.five_hour_resets_at_epoch {
         Some(epoch) => format_time_until_epoch(epoch),
         None => format_time_until(&data.five_hour_resets_at),
     };
+
+    // --- Seven-day part ---
     let seven_d_pct = format!("{:.0}", data.seven_day_pct);
     let seven_d_remaining = format!("{:.0}", (100.0 - data.seven_day_pct).max(0.0));
     let seven_d_reset = match data.seven_day_resets_at_epoch {
         Some(epoch) => format_time_until_epoch(epoch),
         None => format_time_until(&data.seven_day_resets_at),
     };
+
+    // --- Pace calculation ---
+    const FIVE_HOUR_SECS: u64 = 18_000;
+    const SEVEN_DAY_SECS: u64 = 604_800;
+
+    let five_h_resets_epoch = data.five_hour_resets_at_epoch.or_else(|| {
+        crate::cache::iso8601_to_epoch(&data.five_hour_resets_at)
+    });
+    let seven_d_resets_epoch = data.seven_day_resets_at_epoch.or_else(|| {
+        crate::cache::iso8601_to_epoch(&data.seven_day_resets_at)
+    });
+    let five_h_pace = format_pace(calculate_pace(data.five_hour_pct, five_h_resets_epoch, FIVE_HOUR_SECS));
+    let seven_d_pace = format_pace(calculate_pace(data.seven_day_pct, seven_d_resets_epoch, SEVEN_DAY_SECS));
 
     let five_h_fmt = cfg
         .five_hour_format
@@ -195,18 +217,69 @@ fn format_output(data: &UsageLimitsData, cfg: &UsageLimitsConfig) -> String {
         .seven_day_format
         .as_deref()
         .unwrap_or("7d: {pct}% resets in {reset}");
-    let sep = cfg.separator.as_deref().unwrap_or(" | ");
 
     let five_h_part = five_h_fmt
         .replace("{pct}", &five_h_pct)
         .replace("{remaining}", &five_h_remaining)
-        .replace("{reset}", &five_h_reset);
+        .replace("{reset}", &five_h_reset)
+        .replace("{pace}", &five_h_pace);
     let seven_d_part = seven_d_fmt
         .replace("{pct}", &seven_d_pct)
         .replace("{remaining}", &seven_d_remaining)
-        .replace("{reset}", &seven_d_reset);
+        .replace("{reset}", &seven_d_reset)
+        .replace("{pace}", &seven_d_pace);
 
-    format!("{five_h_part}{sep}{seven_d_part}")
+    let mut parts: Vec<String> = vec![five_h_part, seven_d_part];
+
+    // --- Per-model 7-day breakdowns ---
+    #[allow(clippy::type_complexity)]
+    let model_entries: &[(&str, Option<f64>, &Option<String>, Option<&str>)] = &[
+        ("opus", data.seven_day_opus_pct, &data.seven_day_opus_resets_at, cfg.opus_format.as_deref()),
+        ("sonnet", data.seven_day_sonnet_pct, &data.seven_day_sonnet_resets_at, cfg.sonnet_format.as_deref()),
+        ("cowork", data.seven_day_cowork_pct, &data.seven_day_cowork_resets_at, cfg.cowork_format.as_deref()),
+        ("oauth", data.seven_day_oauth_apps_pct, &data.seven_day_oauth_apps_resets_at, cfg.oauth_apps_format.as_deref()),
+    ];
+
+    for (name, pct_opt, resets_at_opt, fmt_opt) in model_entries {
+        if let Some(pct) = pct_opt {
+            let pct_str = format!("{:.0}", pct);
+            let remaining_str = format!("{:.0}", (100.0 - pct).max(0.0));
+            let reset_str = match resets_at_opt {
+                Some(s) => format_time_until(s),
+                None => "?".to_string(),
+            };
+            let default_fmt = format!("{name} {{pct}}%");
+            let fmt = fmt_opt.unwrap_or(&default_fmt);
+            let rendered = fmt
+                .replace("{pct}", &pct_str)
+                .replace("{remaining}", &remaining_str)
+                .replace("{reset}", &reset_str);
+            parts.push(rendered);
+        }
+    }
+
+    // --- Extra usage ---
+    if data.extra_usage_enabled == Some(true) {
+        let eu_pct = data.extra_usage_utilization.map(|v| format!("{:.0}", v)).unwrap_or_else(|| "?".into());
+        let eu_used = data.extra_usage_used_credits.map(|v| format!("{:.0}", v)).unwrap_or_else(|| "?".into());
+        let eu_limit = data.extra_usage_monthly_limit.map(|v| format!("{:.0}", v)).unwrap_or_else(|| "?".into());
+        let eu_remaining = match (data.extra_usage_monthly_limit, data.extra_usage_used_credits) {
+            (Some(limit), Some(used)) => format!("{:.0}", (limit - used).max(0.0)),
+            _ => "?".into(),
+        };
+        let eu_fmt = cfg
+            .extra_usage_format
+            .as_deref()
+            .unwrap_or("extra: {pct}% (${used}/${limit})");
+        let rendered = eu_fmt
+            .replace("{pct}", &eu_pct)
+            .replace("{used}", &eu_used)
+            .replace("{limit}", &eu_limit)
+            .replace("{remaining}", &eu_remaining);
+        parts.push(rendered);
+    }
+
+    parts.join(sep)
 }
 
 /// Convert a Unix epoch reset timestamp to a human-readable time-until string.
@@ -272,6 +345,43 @@ fn format_remaining_secs(secs: u64) -> String {
         format!("{}h{}m", hours, mins % 60)
     } else {
         format!("{}m", mins)
+    }
+}
+
+/// Calculate pace: how far ahead or behind linear consumption the user is.
+///
+/// Returns `Some(pace)` where positive = headroom, negative = over-pace.
+/// Returns `None` when `resets_at_epoch` is unavailable.
+///
+/// - `used_pct`: current utilization percentage (0-100+)
+/// - `resets_at_epoch`: Unix epoch when the window resets; `None` = unknown
+/// - `window_secs`: total window duration in seconds (18000 for 5h, 604800 for 7d)
+fn calculate_pace(used_pct: f64, resets_at_epoch: Option<u64>, window_secs: u64) -> Option<f64> {
+    let reset = resets_at_epoch?;
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+    let remaining = reset.saturating_sub(now);
+    let elapsed = window_secs.saturating_sub(remaining);
+    let elapsed_fraction = elapsed as f64 / window_secs as f64;
+    let expected_pct = elapsed_fraction * 100.0;
+    Some(expected_pct - used_pct)
+}
+
+/// Format a pace value as a signed percentage string.
+/// Positive → "+20%", negative → "-15%", None → "?".
+fn format_pace(pace: Option<f64>) -> String {
+    match pace {
+        Some(p) => {
+            let rounded = p.round() as i64;
+            if rounded >= 0 {
+                format!("+{rounded}%")
+            } else {
+                format!("{rounded}%")
+            }
+        }
+        None => "?".to_string(),
     }
 }
 
@@ -1302,5 +1412,365 @@ mod tests {
             result.ends_with('m') && !result.contains('h'),
             "expected Xm format: {result}"
         );
+    }
+
+    // ── calculate_pace() tests ───────────────────────────────────────────────
+
+    #[test]
+    fn test_calculate_pace_headroom() {
+        let now_epoch = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+        let resets_at_epoch = now_epoch + 9000; // 50% elapsed of 5h
+        let pace = calculate_pace(30.0, Some(resets_at_epoch), 18000);
+        let p = pace.unwrap();
+        assert!(p > 15.0 && p < 25.0, "expected ~+20 headroom, got {p}");
+    }
+
+    #[test]
+    fn test_calculate_pace_over_pace() {
+        let now_epoch = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+        let resets_at_epoch = now_epoch + 9000;
+        let pace = calculate_pace(70.0, Some(resets_at_epoch), 18000);
+        let p = pace.unwrap();
+        assert!(p < -15.0 && p > -25.0, "expected ~-20 over-pace, got {p}");
+    }
+
+    #[test]
+    fn test_calculate_pace_no_reset_returns_none() {
+        let pace = calculate_pace(50.0, None, 18000);
+        assert!(pace.is_none());
+    }
+
+    #[test]
+    fn test_calculate_pace_reset_in_past() {
+        let now_epoch = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+        let pace = calculate_pace(30.0, Some(now_epoch.saturating_sub(100)), 18000);
+        let p = pace.unwrap();
+        assert!(p > 65.0 && p < 75.0, "expected ~+70 headroom, got {p}");
+    }
+
+    // ── format_pace() tests ──────────────────────────────────────────────────
+
+    #[test]
+    fn test_format_pace_positive() {
+        assert_eq!(format_pace(Some(20.3)), "+20%");
+    }
+
+    #[test]
+    fn test_format_pace_negative() {
+        assert_eq!(format_pace(Some(-15.7)), "-16%");
+    }
+
+    #[test]
+    fn test_format_pace_zero() {
+        assert_eq!(format_pace(Some(0.0)), "+0%");
+    }
+
+    #[test]
+    fn test_format_pace_none() {
+        assert_eq!(format_pace(None), "?");
+    }
+
+    // ── pace in format_output() tests ────────────────────────────────────────
+
+    #[test]
+    fn test_format_output_pace_placeholder_five_hour() {
+        let now_epoch = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs();
+        let data = UsageLimitsData {
+            five_hour_pct: 30.0,
+            seven_day_pct: 10.0,
+            five_hour_resets_at: String::new(),
+            seven_day_resets_at: String::new(),
+            five_hour_resets_at_epoch: Some(now_epoch + 9000),
+            seven_day_resets_at_epoch: Some(now_epoch + 302400),
+            extra_usage_enabled: None,
+            extra_usage_monthly_limit: None,
+            extra_usage_used_credits: None,
+            extra_usage_utilization: None,
+            seven_day_opus_pct: None,
+            seven_day_opus_resets_at: None,
+            seven_day_sonnet_pct: None,
+            seven_day_sonnet_resets_at: None,
+            seven_day_cowork_pct: None,
+            seven_day_cowork_resets_at: None,
+            seven_day_oauth_apps_pct: None,
+            seven_day_oauth_apps_resets_at: None,
+        };
+        let cfg = UsageLimitsConfig {
+            five_hour_format: Some("5h {pct}% pace:{pace}".into()),
+            seven_day_format: Some("7d {pct}%".into()),
+            ..Default::default()
+        };
+        let result = format_output(&data, &cfg);
+        assert!(result.contains("pace:+"), "expected positive pace in: {result:?}");
+        assert!(result.contains("5h 30%"), "expected 5h 30% in: {result:?}");
+    }
+
+    #[test]
+    fn test_format_output_pace_placeholder_no_epoch() {
+        let data = UsageLimitsData {
+            five_hour_pct: 30.0,
+            seven_day_pct: 10.0,
+            five_hour_resets_at: String::new(),
+            seven_day_resets_at: String::new(),
+            five_hour_resets_at_epoch: None,
+            seven_day_resets_at_epoch: None,
+            extra_usage_enabled: None,
+            extra_usage_monthly_limit: None,
+            extra_usage_used_credits: None,
+            extra_usage_utilization: None,
+            seven_day_opus_pct: None,
+            seven_day_opus_resets_at: None,
+            seven_day_sonnet_pct: None,
+            seven_day_sonnet_resets_at: None,
+            seven_day_cowork_pct: None,
+            seven_day_cowork_resets_at: None,
+            seven_day_oauth_apps_pct: None,
+            seven_day_oauth_apps_resets_at: None,
+        };
+        let cfg = UsageLimitsConfig {
+            five_hour_format: Some("5h {pct}% pace:{pace}".into()),
+            seven_day_format: Some("7d {pct}%".into()),
+            ..Default::default()
+        };
+        let result = format_output(&data, &cfg);
+        assert!(result.contains("pace:?"), "expected ? for unknown pace in: {result:?}");
+    }
+
+    // ── extra usage in format_output() tests ─────────────────────────────────
+
+    #[test]
+    fn test_format_output_extra_usage_enabled() {
+        let data = UsageLimitsData {
+            five_hour_pct: 100.0,
+            seven_day_pct: 50.0,
+            five_hour_resets_at: "2099-01-01T00:00:00Z".into(),
+            seven_day_resets_at: "2099-01-01T00:00:00Z".into(),
+            five_hour_resets_at_epoch: None,
+            seven_day_resets_at_epoch: None,
+            extra_usage_enabled: Some(true),
+            extra_usage_monthly_limit: Some(20000.0),
+            extra_usage_used_credits: Some(6195.0),
+            extra_usage_utilization: Some(31.0),
+            seven_day_opus_pct: None,
+            seven_day_opus_resets_at: None,
+            seven_day_sonnet_pct: None,
+            seven_day_sonnet_resets_at: None,
+            seven_day_cowork_pct: None,
+            seven_day_cowork_resets_at: None,
+            seven_day_oauth_apps_pct: None,
+            seven_day_oauth_apps_resets_at: None,
+        };
+        let cfg = UsageLimitsConfig {
+            five_hour_format: Some("{pct}%".into()),
+            seven_day_format: Some("{pct}%".into()),
+            ..Default::default()
+        };
+        let result = format_output(&data, &cfg);
+        assert!(result.contains("100%"), "five_hour in: {result:?}");
+        assert!(result.contains("50%"), "seven_day in: {result:?}");
+        assert!(result.contains("extra:"), "extra usage default format in: {result:?}");
+        assert!(result.contains("31%"), "extra pct in: {result:?}");
+        assert!(result.contains("6195"), "used credits in: {result:?}");
+        assert!(result.contains("20000"), "monthly limit in: {result:?}");
+    }
+
+    #[test]
+    fn test_format_output_extra_usage_disabled() {
+        let data = UsageLimitsData {
+            five_hour_pct: 50.0,
+            seven_day_pct: 20.0,
+            five_hour_resets_at: "2099-01-01T00:00:00Z".into(),
+            seven_day_resets_at: "2099-01-01T00:00:00Z".into(),
+            five_hour_resets_at_epoch: None,
+            seven_day_resets_at_epoch: None,
+            extra_usage_enabled: Some(false),
+            extra_usage_monthly_limit: Some(20000.0),
+            extra_usage_used_credits: Some(0.0),
+            extra_usage_utilization: Some(0.0),
+            seven_day_opus_pct: None,
+            seven_day_opus_resets_at: None,
+            seven_day_sonnet_pct: None,
+            seven_day_sonnet_resets_at: None,
+            seven_day_cowork_pct: None,
+            seven_day_cowork_resets_at: None,
+            seven_day_oauth_apps_pct: None,
+            seven_day_oauth_apps_resets_at: None,
+        };
+        let cfg = UsageLimitsConfig::default();
+        let result = format_output(&data, &cfg);
+        assert!(!result.contains("extra"), "extra usage should be hidden when disabled: {result:?}");
+    }
+
+    #[test]
+    fn test_format_output_extra_usage_absent() {
+        let data = UsageLimitsData {
+            five_hour_pct: 50.0,
+            seven_day_pct: 20.0,
+            five_hour_resets_at: "2099-01-01T00:00:00Z".into(),
+            seven_day_resets_at: "2099-01-01T00:00:00Z".into(),
+            five_hour_resets_at_epoch: None,
+            seven_day_resets_at_epoch: None,
+            extra_usage_enabled: None,
+            extra_usage_monthly_limit: None,
+            extra_usage_used_credits: None,
+            extra_usage_utilization: None,
+            seven_day_opus_pct: None,
+            seven_day_opus_resets_at: None,
+            seven_day_sonnet_pct: None,
+            seven_day_sonnet_resets_at: None,
+            seven_day_cowork_pct: None,
+            seven_day_cowork_resets_at: None,
+            seven_day_oauth_apps_pct: None,
+            seven_day_oauth_apps_resets_at: None,
+        };
+        let cfg = UsageLimitsConfig::default();
+        let result = format_output(&data, &cfg);
+        assert!(!result.contains("extra"), "extra usage should be absent: {result:?}");
+    }
+
+    #[test]
+    fn test_format_output_extra_usage_custom_format() {
+        let data = UsageLimitsData {
+            five_hour_pct: 100.0,
+            seven_day_pct: 50.0,
+            five_hour_resets_at: "2099-01-01T00:00:00Z".into(),
+            seven_day_resets_at: "2099-01-01T00:00:00Z".into(),
+            five_hour_resets_at_epoch: None,
+            seven_day_resets_at_epoch: None,
+            extra_usage_enabled: Some(true),
+            extra_usage_monthly_limit: Some(20000.0),
+            extra_usage_used_credits: Some(6195.0),
+            extra_usage_utilization: Some(31.0),
+            seven_day_opus_pct: None,
+            seven_day_opus_resets_at: None,
+            seven_day_sonnet_pct: None,
+            seven_day_sonnet_resets_at: None,
+            seven_day_cowork_pct: None,
+            seven_day_cowork_resets_at: None,
+            seven_day_oauth_apps_pct: None,
+            seven_day_oauth_apps_resets_at: None,
+        };
+        let cfg = UsageLimitsConfig {
+            five_hour_format: Some("{pct}%".into()),
+            seven_day_format: Some("{pct}%".into()),
+            extra_usage_format: Some("EXTRA {pct}% rem:{remaining}".into()),
+            ..Default::default()
+        };
+        let result = format_output(&data, &cfg);
+        assert!(result.contains("EXTRA 31%"), "custom format: {result:?}");
+        assert!(result.contains("rem:13805"), "remaining credits: {result:?}");
+    }
+
+    // ── per-model in format_output() tests ───────────────────────────────────
+
+    #[test]
+    fn test_format_output_per_model_present() {
+        let data = UsageLimitsData {
+            five_hour_pct: 50.0,
+            seven_day_pct: 30.0,
+            five_hour_resets_at: "2099-01-01T00:00:00Z".into(),
+            seven_day_resets_at: "2099-01-01T00:00:00Z".into(),
+            five_hour_resets_at_epoch: None,
+            seven_day_resets_at_epoch: None,
+            extra_usage_enabled: None,
+            extra_usage_monthly_limit: None,
+            extra_usage_used_credits: None,
+            extra_usage_utilization: None,
+            seven_day_opus_pct: Some(12.0),
+            seven_day_opus_resets_at: Some("2099-02-01T00:00:00Z".into()),
+            seven_day_sonnet_pct: Some(3.0),
+            seven_day_sonnet_resets_at: Some("2099-03-01T00:00:00Z".into()),
+            seven_day_cowork_pct: None,
+            seven_day_cowork_resets_at: None,
+            seven_day_oauth_apps_pct: None,
+            seven_day_oauth_apps_resets_at: None,
+        };
+        let cfg = UsageLimitsConfig {
+            five_hour_format: Some("{pct}%".into()),
+            seven_day_format: Some("{pct}%".into()),
+            ..Default::default()
+        };
+        let result = format_output(&data, &cfg);
+        assert!(result.contains("opus 12%"), "opus breakdown in: {result:?}");
+        assert!(result.contains("sonnet 3%"), "sonnet breakdown in: {result:?}");
+        assert!(!result.contains("cowork"), "null cowork should be omitted: {result:?}");
+        assert!(!result.contains("oauth"), "null oauth_apps should be omitted: {result:?}");
+    }
+
+    #[test]
+    fn test_format_output_per_model_custom_format() {
+        let data = UsageLimitsData {
+            five_hour_pct: 50.0,
+            seven_day_pct: 30.0,
+            five_hour_resets_at: "2099-01-01T00:00:00Z".into(),
+            seven_day_resets_at: "2099-01-01T00:00:00Z".into(),
+            five_hour_resets_at_epoch: None,
+            seven_day_resets_at_epoch: None,
+            extra_usage_enabled: None,
+            extra_usage_monthly_limit: None,
+            extra_usage_used_credits: None,
+            extra_usage_utilization: None,
+            seven_day_opus_pct: Some(12.0),
+            seven_day_opus_resets_at: Some("2099-02-01T00:00:00Z".into()),
+            seven_day_sonnet_pct: None,
+            seven_day_sonnet_resets_at: None,
+            seven_day_cowork_pct: None,
+            seven_day_cowork_resets_at: None,
+            seven_day_oauth_apps_pct: None,
+            seven_day_oauth_apps_resets_at: None,
+        };
+        let cfg = UsageLimitsConfig {
+            five_hour_format: Some("{pct}%".into()),
+            seven_day_format: Some("{pct}%".into()),
+            opus_format: Some("OP:{pct}%/{remaining}%".into()),
+            ..Default::default()
+        };
+        let result = format_output(&data, &cfg);
+        assert!(result.contains("OP:12%/88%"), "custom opus format: {result:?}");
+    }
+
+    #[test]
+    fn test_format_output_no_dangling_separators() {
+        let data = UsageLimitsData {
+            five_hour_pct: 50.0,
+            seven_day_pct: 30.0,
+            five_hour_resets_at: "2099-01-01T00:00:00Z".into(),
+            seven_day_resets_at: "2099-01-01T00:00:00Z".into(),
+            five_hour_resets_at_epoch: None,
+            seven_day_resets_at_epoch: None,
+            extra_usage_enabled: None,
+            extra_usage_monthly_limit: None,
+            extra_usage_used_credits: None,
+            extra_usage_utilization: None,
+            seven_day_opus_pct: None,
+            seven_day_opus_resets_at: None,
+            seven_day_sonnet_pct: None,
+            seven_day_sonnet_resets_at: None,
+            seven_day_cowork_pct: None,
+            seven_day_cowork_resets_at: None,
+            seven_day_oauth_apps_pct: None,
+            seven_day_oauth_apps_resets_at: None,
+        };
+        let cfg = UsageLimitsConfig {
+            five_hour_format: Some("{pct}%".into()),
+            seven_day_format: Some("{pct}%".into()),
+            separator: Some(" | ".into()),
+            ..Default::default()
+        };
+        let result = format_output(&data, &cfg);
+        assert_eq!(result, "50% | 30%", "no trailing separator: {result:?}");
+        assert!(!result.ends_with(" | "), "no dangling sep: {result:?}");
     }
 }
