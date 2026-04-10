@@ -289,6 +289,18 @@ mod tests {
             seven_day_resets_at: "2099-01-01T00:00:00Z".into(),
             five_hour_resets_at_epoch: None,
             seven_day_resets_at_epoch: None,
+            extra_usage_enabled: None,
+            extra_usage_monthly_limit: None,
+            extra_usage_used_credits: None,
+            extra_usage_utilization: None,
+            seven_day_opus_pct: None,
+            seven_day_opus_resets_at: None,
+            seven_day_sonnet_pct: None,
+            seven_day_sonnet_resets_at: None,
+            seven_day_cowork_pct: None,
+            seven_day_cowork_resets_at: None,
+            seven_day_oauth_apps_pct: None,
+            seven_day_oauth_apps_resets_at: None,
         }
     }
 
@@ -368,6 +380,18 @@ mod tests {
             seven_day_resets_at: "2099-01-01T00:00:00Z".into(), // future
             five_hour_resets_at_epoch: None,
             seven_day_resets_at_epoch: None,
+            extra_usage_enabled: None,
+            extra_usage_monthly_limit: None,
+            extra_usage_used_credits: None,
+            extra_usage_utilization: None,
+            seven_day_opus_pct: None,
+            seven_day_opus_resets_at: None,
+            seven_day_sonnet_pct: None,
+            seven_day_sonnet_resets_at: None,
+            seven_day_cowork_pct: None,
+            seven_day_cowork_resets_at: None,
+            seven_day_oauth_apps_pct: None,
+            seven_day_oauth_apps_resets_at: None,
         };
         write_usage_limits(&transcript, &data, 60);
         let result = read_usage_limits(&transcript, false);
@@ -408,6 +432,18 @@ mod tests {
             seven_day_resets_at: "2000-01-01T00:00:00Z".into(), // past
             five_hour_resets_at_epoch: None,
             seven_day_resets_at_epoch: None,
+            extra_usage_enabled: None,
+            extra_usage_monthly_limit: None,
+            extra_usage_used_credits: None,
+            extra_usage_utilization: None,
+            seven_day_opus_pct: None,
+            seven_day_opus_resets_at: None,
+            seven_day_sonnet_pct: None,
+            seven_day_sonnet_resets_at: None,
+            seven_day_cowork_pct: None,
+            seven_day_cowork_resets_at: None,
+            seven_day_oauth_apps_pct: None,
+            seven_day_oauth_apps_resets_at: None,
         };
         write_usage_limits(&transcript, &data, 60);
         let result = read_usage_limits(&transcript, false);
@@ -430,6 +466,18 @@ mod tests {
             seven_day_resets_at: String::new(),
             five_hour_resets_at_epoch: None,
             seven_day_resets_at_epoch: None,
+            extra_usage_enabled: None,
+            extra_usage_monthly_limit: None,
+            extra_usage_used_credits: None,
+            extra_usage_utilization: None,
+            seven_day_opus_pct: None,
+            seven_day_opus_resets_at: None,
+            seven_day_sonnet_pct: None,
+            seven_day_sonnet_resets_at: None,
+            seven_day_cowork_pct: None,
+            seven_day_cowork_resets_at: None,
+            seven_day_oauth_apps_pct: None,
+            seven_day_oauth_apps_resets_at: None,
         };
         write_usage_limits(&transcript, &data, 60);
         let result = read_usage_limits(&transcript, false);
@@ -517,6 +565,18 @@ mod tests {
             seven_day_resets_at: "2099-01-01T00:00:00+00:00".into(), // future
             five_hour_resets_at_epoch: None,
             seven_day_resets_at_epoch: None,
+            extra_usage_enabled: None,
+            extra_usage_monthly_limit: None,
+            extra_usage_used_credits: None,
+            extra_usage_utilization: None,
+            seven_day_opus_pct: None,
+            seven_day_opus_resets_at: None,
+            seven_day_sonnet_pct: None,
+            seven_day_sonnet_resets_at: None,
+            seven_day_cowork_pct: None,
+            seven_day_cowork_resets_at: None,
+            seven_day_oauth_apps_pct: None,
+            seven_day_oauth_apps_resets_at: None,
         };
         write_usage_limits(&transcript, &data, 60);
         let result = read_usage_limits(&transcript, false);

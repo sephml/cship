@@ -146,6 +146,19 @@ fn data_from_stdin_rate_limits(ctx: &Context) -> Option<UsageLimitsData> {
         seven_day_resets_at: String::new(),
         five_hour_resets_at_epoch: five_epoch,
         seven_day_resets_at_epoch: seven_epoch,
+        // Extra usage and per-model fields are only populated on the OAuth path.
+        extra_usage_enabled: None,
+        extra_usage_monthly_limit: None,
+        extra_usage_used_credits: None,
+        extra_usage_utilization: None,
+        seven_day_opus_pct: None,
+        seven_day_opus_resets_at: None,
+        seven_day_sonnet_pct: None,
+        seven_day_sonnet_resets_at: None,
+        seven_day_cowork_pct: None,
+        seven_day_cowork_resets_at: None,
+        seven_day_oauth_apps_pct: None,
+        seven_day_oauth_apps_resets_at: None,
     })
 }
 
@@ -334,6 +347,18 @@ mod tests {
             seven_day_resets_at: "2099-01-01T00:00:00Z".into(),
             five_hour_resets_at_epoch: None,
             seven_day_resets_at_epoch: None,
+            extra_usage_enabled: None,
+            extra_usage_monthly_limit: None,
+            extra_usage_used_credits: None,
+            extra_usage_utilization: None,
+            seven_day_opus_pct: None,
+            seven_day_opus_resets_at: None,
+            seven_day_sonnet_pct: None,
+            seven_day_sonnet_resets_at: None,
+            seven_day_cowork_pct: None,
+            seven_day_cowork_resets_at: None,
+            seven_day_oauth_apps_pct: None,
+            seven_day_oauth_apps_resets_at: None,
         };
         crate::cache::write_usage_limits(&transcript, &data, 60);
 
@@ -359,6 +384,18 @@ mod tests {
             seven_day_resets_at: "2099-01-01T00:00:00Z".into(),
             five_hour_resets_at_epoch: None,
             seven_day_resets_at_epoch: None,
+            extra_usage_enabled: None,
+            extra_usage_monthly_limit: None,
+            extra_usage_used_credits: None,
+            extra_usage_utilization: None,
+            seven_day_opus_pct: None,
+            seven_day_opus_resets_at: None,
+            seven_day_sonnet_pct: None,
+            seven_day_sonnet_resets_at: None,
+            seven_day_cowork_pct: None,
+            seven_day_cowork_resets_at: None,
+            seven_day_oauth_apps_pct: None,
+            seven_day_oauth_apps_resets_at: None,
         };
         crate::cache::write_usage_limits(&transcript, &data, 60);
 
@@ -392,6 +429,18 @@ mod tests {
             seven_day_resets_at: "2099-01-01T00:00:00Z".into(),
             five_hour_resets_at_epoch: None,
             seven_day_resets_at_epoch: None,
+            extra_usage_enabled: None,
+            extra_usage_monthly_limit: None,
+            extra_usage_used_credits: None,
+            extra_usage_utilization: None,
+            seven_day_opus_pct: None,
+            seven_day_opus_resets_at: None,
+            seven_day_sonnet_pct: None,
+            seven_day_sonnet_resets_at: None,
+            seven_day_cowork_pct: None,
+            seven_day_cowork_resets_at: None,
+            seven_day_oauth_apps_pct: None,
+            seven_day_oauth_apps_resets_at: None,
         };
         crate::cache::write_usage_limits(&transcript, &data, 60);
 
@@ -430,6 +479,18 @@ mod tests {
             seven_day_resets_at: "2099-01-01T00:00:00Z".into(),
             five_hour_resets_at_epoch: None,
             seven_day_resets_at_epoch: None,
+            extra_usage_enabled: None,
+            extra_usage_monthly_limit: None,
+            extra_usage_used_credits: None,
+            extra_usage_utilization: None,
+            seven_day_opus_pct: None,
+            seven_day_opus_resets_at: None,
+            seven_day_sonnet_pct: None,
+            seven_day_sonnet_resets_at: None,
+            seven_day_cowork_pct: None,
+            seven_day_cowork_resets_at: None,
+            seven_day_oauth_apps_pct: None,
+            seven_day_oauth_apps_resets_at: None,
         };
         crate::cache::write_usage_limits(&transcript, &data, 60);
 
@@ -468,6 +529,18 @@ mod tests {
             seven_day_resets_at: "2099-01-01T00:00:00Z".into(),
             five_hour_resets_at_epoch: None,
             seven_day_resets_at_epoch: None,
+            extra_usage_enabled: None,
+            extra_usage_monthly_limit: None,
+            extra_usage_used_credits: None,
+            extra_usage_utilization: None,
+            seven_day_opus_pct: None,
+            seven_day_opus_resets_at: None,
+            seven_day_sonnet_pct: None,
+            seven_day_sonnet_resets_at: None,
+            seven_day_cowork_pct: None,
+            seven_day_cowork_resets_at: None,
+            seven_day_oauth_apps_pct: None,
+            seven_day_oauth_apps_resets_at: None,
         };
         crate::cache::write_usage_limits(&transcript, &data, 60);
         // Verify read_usage_limits(allow_stale=true) works even after TTL would normally expire
@@ -488,6 +561,18 @@ mod tests {
             seven_day_resets_at: "2099-01-01T00:00:00Z".into(),
             five_hour_resets_at_epoch: None,
             seven_day_resets_at_epoch: None,
+            extra_usage_enabled: None,
+            extra_usage_monthly_limit: None,
+            extra_usage_used_credits: None,
+            extra_usage_utilization: None,
+            seven_day_opus_pct: None,
+            seven_day_opus_resets_at: None,
+            seven_day_sonnet_pct: None,
+            seven_day_sonnet_resets_at: None,
+            seven_day_cowork_pct: None,
+            seven_day_cowork_resets_at: None,
+            seven_day_oauth_apps_pct: None,
+            seven_day_oauth_apps_resets_at: None,
         };
         let cloned = expected.clone();
         let result = fetch_with_timeout(move || Ok(cloned));
@@ -513,6 +598,18 @@ mod tests {
                 seven_day_resets_at: String::new(),
                 five_hour_resets_at_epoch: None,
                 seven_day_resets_at_epoch: None,
+                extra_usage_enabled: None,
+                extra_usage_monthly_limit: None,
+                extra_usage_used_credits: None,
+                extra_usage_utilization: None,
+                seven_day_opus_pct: None,
+                seven_day_opus_resets_at: None,
+                seven_day_sonnet_pct: None,
+                seven_day_sonnet_resets_at: None,
+                seven_day_cowork_pct: None,
+                seven_day_cowork_resets_at: None,
+                seven_day_oauth_apps_pct: None,
+                seven_day_oauth_apps_resets_at: None,
             })
         });
         assert!(result.is_none());
@@ -623,6 +720,18 @@ mod tests {
             seven_day_resets_at: "2099-01-01T00:00:00Z".into(),
             five_hour_resets_at_epoch: None,
             seven_day_resets_at_epoch: None,
+            extra_usage_enabled: None,
+            extra_usage_monthly_limit: None,
+            extra_usage_used_credits: None,
+            extra_usage_utilization: None,
+            seven_day_opus_pct: None,
+            seven_day_opus_resets_at: None,
+            seven_day_sonnet_pct: None,
+            seven_day_sonnet_resets_at: None,
+            seven_day_cowork_pct: None,
+            seven_day_cowork_resets_at: None,
+            seven_day_oauth_apps_pct: None,
+            seven_day_oauth_apps_resets_at: None,
         };
         let cfg = UsageLimitsConfig::default();
         let result = format_output(&data, &cfg);
@@ -641,6 +750,18 @@ mod tests {
             seven_day_resets_at: "2099-01-01T00:00:00Z".into(),
             five_hour_resets_at_epoch: None,
             seven_day_resets_at_epoch: None,
+            extra_usage_enabled: None,
+            extra_usage_monthly_limit: None,
+            extra_usage_used_credits: None,
+            extra_usage_utilization: None,
+            seven_day_opus_pct: None,
+            seven_day_opus_resets_at: None,
+            seven_day_sonnet_pct: None,
+            seven_day_sonnet_resets_at: None,
+            seven_day_cowork_pct: None,
+            seven_day_cowork_resets_at: None,
+            seven_day_oauth_apps_pct: None,
+            seven_day_oauth_apps_resets_at: None,
         };
         let cfg = UsageLimitsConfig {
             five_hour_format: Some("⏱: {pct}%({reset})".into()),
@@ -663,6 +784,18 @@ mod tests {
             seven_day_resets_at: "2099-01-01T00:00:00Z".into(),
             five_hour_resets_at_epoch: None,
             seven_day_resets_at_epoch: None,
+            extra_usage_enabled: None,
+            extra_usage_monthly_limit: None,
+            extra_usage_used_credits: None,
+            extra_usage_utilization: None,
+            seven_day_opus_pct: None,
+            seven_day_opus_resets_at: None,
+            seven_day_sonnet_pct: None,
+            seven_day_sonnet_resets_at: None,
+            seven_day_cowork_pct: None,
+            seven_day_cowork_resets_at: None,
+            seven_day_oauth_apps_pct: None,
+            seven_day_oauth_apps_resets_at: None,
         };
         let cfg = UsageLimitsConfig {
             seven_day_format: Some("7d {pct}%/{reset}".into()),
@@ -685,6 +818,18 @@ mod tests {
             seven_day_resets_at: "2099-01-01T00:00:00Z".into(),
             five_hour_resets_at_epoch: None,
             seven_day_resets_at_epoch: None,
+            extra_usage_enabled: None,
+            extra_usage_monthly_limit: None,
+            extra_usage_used_credits: None,
+            extra_usage_utilization: None,
+            seven_day_opus_pct: None,
+            seven_day_opus_resets_at: None,
+            seven_day_sonnet_pct: None,
+            seven_day_sonnet_resets_at: None,
+            seven_day_cowork_pct: None,
+            seven_day_cowork_resets_at: None,
+            seven_day_oauth_apps_pct: None,
+            seven_day_oauth_apps_resets_at: None,
         };
         let cfg = UsageLimitsConfig {
             separator: Some(" — ".into()),
@@ -711,6 +856,18 @@ mod tests {
             seven_day_resets_at: "2099-01-01T00:00:00Z".into(),
             five_hour_resets_at_epoch: None,
             seven_day_resets_at_epoch: None,
+            extra_usage_enabled: None,
+            extra_usage_monthly_limit: None,
+            extra_usage_used_credits: None,
+            extra_usage_utilization: None,
+            seven_day_opus_pct: None,
+            seven_day_opus_resets_at: None,
+            seven_day_sonnet_pct: None,
+            seven_day_sonnet_resets_at: None,
+            seven_day_cowork_pct: None,
+            seven_day_cowork_resets_at: None,
+            seven_day_oauth_apps_pct: None,
+            seven_day_oauth_apps_resets_at: None,
         };
         let cfg = UsageLimitsConfig {
             five_hour_format: Some("{pct}%".into()),
@@ -734,6 +891,18 @@ mod tests {
             seven_day_resets_at: "2099-01-01T00:00:00Z".into(),
             five_hour_resets_at_epoch: None,
             seven_day_resets_at_epoch: None,
+            extra_usage_enabled: None,
+            extra_usage_monthly_limit: None,
+            extra_usage_used_credits: None,
+            extra_usage_utilization: None,
+            seven_day_opus_pct: None,
+            seven_day_opus_resets_at: None,
+            seven_day_sonnet_pct: None,
+            seven_day_sonnet_resets_at: None,
+            seven_day_cowork_pct: None,
+            seven_day_cowork_resets_at: None,
+            seven_day_oauth_apps_pct: None,
+            seven_day_oauth_apps_resets_at: None,
         };
         crate::cache::write_usage_limits(&transcript, &data, 60);
 
@@ -1029,6 +1198,18 @@ mod tests {
             seven_day_resets_at: "2099-01-01T00:00:00Z".into(),
             five_hour_resets_at_epoch: None,
             seven_day_resets_at_epoch: None,
+            extra_usage_enabled: None,
+            extra_usage_monthly_limit: None,
+            extra_usage_used_credits: None,
+            extra_usage_utilization: None,
+            seven_day_opus_pct: None,
+            seven_day_opus_resets_at: None,
+            seven_day_sonnet_pct: None,
+            seven_day_sonnet_resets_at: None,
+            seven_day_cowork_pct: None,
+            seven_day_cowork_resets_at: None,
+            seven_day_oauth_apps_pct: None,
+            seven_day_oauth_apps_resets_at: None,
         };
         crate::cache::write_usage_limits(&transcript, &cache_data, 60);
 
