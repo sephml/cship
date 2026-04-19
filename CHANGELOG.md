@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [1.5.0] - 2026-04-19
+
+### Fixed
+- Fixed `install.sh` failing in non-interactive environments (Docker `RUN`, CI pipelines) — the installer no longer opens `/dev/tty` when no terminal is available, instead printing skip messages for optional dependencies
+
+### Added
+- Added `--yes` / `-y` flag to `install.sh` to auto-install all optional dependencies (Starship, `libsecret-tools` on Linux) without prompting
+
 ## [1.4.2] - 2026-04-19
 
 ### Added
