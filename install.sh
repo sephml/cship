@@ -30,7 +30,13 @@ esac
 
 echo "Detected: $OS/$ARCH → target: $TARGET"
 
-# ── 2. Download Binary ────────────────────────────────────────────────────────
+# ── 2. Uninstall any existing cship ───────────────────────────────────────────
+if command -v cship >/dev/null 2>&1; then
+  echo "Existing cship found — running uninstall to clean up before upgrade..."
+  cship uninstall
+fi
+
+# ── 3. Download Binary ────────────────────────────────────────────────────────
 BINARY_URL="https://github.com/stephenleo/cship/releases/latest/download/cship-${TARGET}"
 mkdir -p "$INSTALL_DIR"
 echo "Downloading cship from $BINARY_URL ..."
@@ -43,7 +49,7 @@ if [ ! -s "${INSTALL_DIR}/cship" ]; then
 fi
 echo "Installed cship to ${INSTALL_DIR}/cship"
 
-# ── 3. Linux: libsecret-tools check (usage limits dependency) ─────────────────
+# ── 4. Linux: libsecret-tools check (usage limits dependency) ─────────────────
 if [ "$OS" = "Linux" ] && ! command -v secret-tool >/dev/null 2>&1; then
   printf "Install libsecret-tools? (required for usage limits on Linux) [Y/n] "
   read -r answer </dev/tty
@@ -53,7 +59,7 @@ if [ "$OS" = "Linux" ] && ! command -v secret-tool >/dev/null 2>&1; then
   esac
 fi
 
-# ── 4. Starship detection and optional install ────────────────────────────────
+# ── 5. Starship detection and optional install ────────────────────────────────
 if ! command -v starship >/dev/null 2>&1; then
   printf "Starship not found. Install Starship? (required for passthrough modules) [Y/n] "
   read -r answer </dev/tty
@@ -63,7 +69,7 @@ if ! command -v starship >/dev/null 2>&1; then
   esac
 fi
 
-# ── 5. cship.toml — create minimal config (idempotent) ───────────────────────
+# ── 6. cship.toml — create minimal config (idempotent) ───────────────────────
 CSHIP_CONFIG="$ROOT/.config/cship.toml"
 mkdir -p "$(dirname "$CSHIP_CONFIG")"
 
@@ -112,7 +118,7 @@ else
   echo "Created minimal cship config at $CSHIP_CONFIG"
 fi
 
-# ── 6. ~/.claude/settings.json — wire statusline (via python3) ───────────────
+# ── 7. ~/.claude/settings.json — wire statusline (via python3) ───────────────
 SETTINGS="$ROOT/.claude/settings.json"
 if ! command -v python3 >/dev/null 2>&1; then
   echo "Warning: python3 not found. Skipping settings.json update."
@@ -140,7 +146,7 @@ else
   echo "settings.json not found at $SETTINGS — skipping (Claude Code may not be installed yet)."
 fi
 
-# ── 7. First-run preview ──────────────────────────────────────────────────────
+# ── 8. First-run preview ──────────────────────────────────────────────────────
 echo ""
 echo "Running cship explain..."
 "$INSTALL_DIR/cship" explain || true

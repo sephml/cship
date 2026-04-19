@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
+## [1.4.2] - 2026-04-19
+
+### Added
+- Added `cship.peak_usage` module — shows a configurable peak-time indicator during Anthropic's high-load hours (Mon–Fri 07:00–17:00 US Pacific by default), with zero new dependencies ([@timoklein](https://github.com/timoklein))
+
+### Fixed
+- Fixed upgrade via re-running the install script — now runs `cship uninstall` first to remove stale binaries from all locations (e.g. `~/.cargo/bin`) before installing the latest release
+- Fixed clippy warnings in `explain.rs` and `cli.rs` tests ([@nh13](https://github.com/nh13))
+
 ## [1.4.1] - 2026-03-28
 
 ### Added
