@@ -1,7 +1,7 @@
 [cship]
 lines = [
   "$starship_prompt",
-  "$cship.model $cship.cost $cship.context_bar $cship.usage_limits"
+  "$cship.model $cship.cost $cship.context_bar $cship.usage_limits $cship.peak_usage"
 ]
 
 [cship.model]
@@ -34,3 +34,7 @@ warn_threshold     = 60.0
 warn_style         = "fg:#e0af68"
 critical_threshold = 80.0
 critical_style     = "bold fg:#f7768e"
+
+[cship.peak_usage]
+symbol = "⏰ "
+style  = "fg:#e0af68"
