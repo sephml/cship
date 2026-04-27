@@ -76,16 +76,30 @@ if ($currentPath -notlike "*$INSTALL_DIR*") {
 }
 
 # --- Starship detection and optional install ---
+$INTERACTIVE = [Environment]::UserInteractive -and -not [Console]::IsInputRedirected
 if (-not (Get-Command starship -ErrorAction SilentlyContinue)) {
-    if ($Yes) {
+    $winget = Get-Command winget -ErrorAction SilentlyContinue
+    if (-not $winget) {
+        Write-Host "Starship not found, and winget is not available on this system."
+        Write-Host "Install Starship manually from https://starship.rs/ then re-run this script."
+        Write-Host "Native cship modules will still work without Starship."
+    } elseif ($Yes) {
         winget install --id Starship.Starship --accept-source-agreements --accept-package-agreements
-    } else {
+        if ($LASTEXITCODE -ne 0) {
+            Write-Host "Starship installation via winget failed (exit code $LASTEXITCODE). Install manually from https://starship.rs/"
+        }
+    } elseif ($INTERACTIVE) {
         $answer = Read-Host "Starship not found. Install Starship? (required for passthrough modules) [Y/n]"
         if ($answer -match '^[Nn]') {
             Write-Host "Skipping Starship install. Native cship modules will still work."
         } else {
             winget install --id Starship.Starship --accept-source-agreements --accept-package-agreements
+            if ($LASTEXITCODE -ne 0) {
+                Write-Host "Starship installation via winget failed (exit code $LASTEXITCODE). Install manually from https://starship.rs/"
+            }
         }
+    } else {
+        Write-Host "Skipping Starship install (non-interactive). Re-run with -Yes or install manually from https://starship.rs/"
     }
 }
 
