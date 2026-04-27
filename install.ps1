@@ -1,4 +1,4 @@
-#Requires -Version 5.1
+﻿#Requires -Version 5.1
 <#
 .SYNOPSIS
     Install cship - Claude Code statusline tool for Windows.
@@ -6,7 +6,10 @@
     Downloads the cship binary from GitHub Releases, installs it to
     %LOCALAPPDATA%\Programs\cship\, writes a default cship.toml, and
     registers the statusline in Claude Code's settings.json.
+.PARAMETER Yes
+    Non-interactive mode: accept all prompts automatically.
 #>
+param([switch]$Yes)
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
@@ -72,18 +75,60 @@ if ($currentPath -notlike "*$INSTALL_DIR*") {
     Write-Host "Added $INSTALL_DIR to your user PATH (effective in new shells)."
 }
 
+# --- Starship detection and optional install ---
+if (-not (Get-Command starship -ErrorAction SilentlyContinue)) {
+    if ($Yes) {
+        winget install --id Starship.Starship --accept-source-agreements --accept-package-agreements
+    } else {
+        $answer = Read-Host "Starship not found. Install Starship? (required for passthrough modules) [Y/n]"
+        if ($answer -match '^[Nn]') {
+            Write-Host "Skipping Starship install. Native cship modules will still work."
+        } else {
+            winget install --id Starship.Starship --accept-source-agreements --accept-package-agreements
+        }
+    }
+}
+
 # --- Write default cship.toml ---
 if (-not (Test-Path $CONFIG_FILE)) {
     New-Item -ItemType Directory -Force -Path $CONFIG_DIR | Out-Null
     @'
+# cship — Claude Code statusline
+# Full config reference: https://cship.dev
 [cship]
-lines = ["$cship.model $cship.cost"]
+lines = [
+  "$directory$git_branch$git_status$python$nodejs$rust",
+  "$cship.model $cship.cost $cship.context_bar $cship.usage_limits"
+]
 
 [cship.model]
-disabled = false
+symbol = "🤖 "
+style  = "bold cyan"
+
+[cship.context_bar]
+width              = 10
+style              = "fg:#7dcfff"
+warn_threshold     = 40.0
+warn_style         = "fg:#e0af68"
+critical_threshold = 70.0
+critical_style     = "bold fg:#f7768e"
 
 [cship.cost]
-disabled = false
+symbol             = "💰 "
+style              = "fg:#a9b1d6"
+warn_threshold     = 2.0
+warn_style         = "fg:#e0af68"
+critical_threshold = 5.0
+critical_style     = "bold fg:#f7768e"
+
+[cship.usage_limits]
+five_hour_format   = "⌛ 5h {pct}% ({reset})"
+seven_day_format   = "📅 7d {pct}% ({reset})"
+separator          = " "
+warn_threshold     = 60.0
+warn_style         = "fg:#e0af68"
+critical_threshold = 80.0
+critical_style     = "bold fg:#f7768e"
 '@ | Set-Content -Path $CONFIG_FILE -Encoding UTF8
     Write-Host "Config written to: $CONFIG_FILE"
 } else {
