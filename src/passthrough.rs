@@ -6,6 +6,9 @@
 
 use std::path::Path;
 use std::process::{Command, Stdio};
+use std::sync::atomic::{AtomicUsize, Ordering};
+
+static TEMP_ID: AtomicUsize = AtomicUsize::new(0);
 
 /// RAII guard that deletes a temporary file when dropped.
 struct TempConfig(std::path::PathBuf);
@@ -47,7 +50,12 @@ fn build_stripped_starship_config() -> Option<TempConfig> {
     disable_starship_module(&mut table, "character");
 
     let content = toml::to_string(&toml::Value::Table(table)).ok()?;
-    let path = std::env::temp_dir().join(format!("cship_starship_{}.toml", std::process::id()));
+    let seq = TEMP_ID.fetch_add(1, Ordering::Relaxed);
+    let path = std::env::temp_dir().join(format!(
+        "cship_starship_{}_{}.toml",
+        std::process::id(),
+        seq
+    ));
     std::fs::write(&path, content).ok()?;
     Some(TempConfig(path))
 }
