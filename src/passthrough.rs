@@ -374,8 +374,9 @@ mod tests {
     use super::*;
     use crate::context::Context;
 
-    // Serializes all tests that mutate the process-global PATH environment variable.
-    // Required because unit tests run in parallel threads within the same process.
+    // Serializes all tests that mutate or read process-global env vars (PATH,
+    // STARSHIP_CONFIG, etc). Required because unit tests run in parallel threads
+    // within the same process and `std::env::set_var` is unsafe across threads.
     static PATH_MUTEX: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
     #[test]
@@ -426,6 +427,8 @@ mod tests {
 
     #[test]
     fn test_build_stripped_starship_config_disables_line_break_and_character() {
+        // Reads STARSHIP_CONFIG; lock ENV mutex to serialize against tests that mutate it.
+        let _guard = PATH_MUTEX.lock().unwrap();
         let result = build_stripped_starship_config();
         assert!(result.is_some(), "should produce a temp config file");
         let tc = result.unwrap();
@@ -456,6 +459,9 @@ mod tests {
         let base_config = "[character]\nsuccess_symbol = \"X\"\n";
         let base_path = std::env::temp_dir().join("cship_test_base_starship.toml");
         fs::write(&base_path, base_config).unwrap();
+
+        // Mutates STARSHIP_CONFIG; lock ENV mutex to avoid racing parallel tests.
+        let _guard = PATH_MUTEX.lock().unwrap();
 
         // Point build_stripped_starship_config at our test base config
         let original = std::env::var("STARSHIP_CONFIG").ok();
