@@ -81,6 +81,19 @@ extra_usage_format = "{active} ${used}/${limit}"
 
 ---
 
+## I'm on a Claude Enterprise plan and `cship.usage_limits` shows nothing — why?
+
+Claude Enterprise reports usage through `extra_usage` (monthly credit pool)
+rather than the standard 5-hour and 7-day windows used for Pro and Max.
+cship now renders the `extra_usage` line directly when standard fields are
+absent, with threshold styling applied to monthly credit utilization.
+
+If you still see no output, run `cship explain` — it will surface the
+specific reason (missing credential, expired token, or extra-credit billing
+not enabled on your Enterprise account).
+
+---
+
 ## How does the peak-time indicator handle time zones and DST?
 
 The `peak_usage` module checks whether the current time falls within the configured peak window in **US Pacific time**. It computes the UTC→Pacific offset internally — PDT (UTC−7) from the second Sunday of March through the first Sunday of November, PST (UTC−8) the rest of the year.
