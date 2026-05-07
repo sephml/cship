@@ -540,11 +540,11 @@ fn format_extra_usage(data: &UsageLimitsData, cfg: &UsageLimitsConfig) -> Option
     } else if lacks_standard_signal(data) {
         let threshold = cfg.warn_threshold.unwrap_or(0.0);
         match data.extra_usage_utilization {
-            Some(u) if u > threshold => "\u{26a1}",
-            _ => "\u{1f4a4}", // 💤
+            Some(u) if u > threshold => "\u{26a1}", // ⚡
+            _ => "\u{1f4a4}",                       // 💤
         }
     } else {
-        "\u{1f4a4}"
+        "\u{1f4a4}" // 💤
     };
     let eu_fmt = cfg
         .extra_usage_format
@@ -2125,7 +2125,10 @@ mod tests {
             ..Default::default()
         };
         let out = format_extra_usage(&data, &cfg).expect("Some");
-        assert_eq!(out, "\u{26a1}", "above warn => lightning bolt");
+        assert_eq!(
+            out, "\u{26a1}", /* ⚡ */
+            "above warn => lightning bolt"
+        );
     }
 
     #[test]
@@ -2143,7 +2146,10 @@ mod tests {
             ..Default::default()
         };
         let out = format_extra_usage(&data, &cfg).expect("Some");
-        assert_eq!(out, "\u{1f4a4}", "below warn => sleep emoji");
+        assert_eq!(
+            out, "\u{1f4a4}", /* 💤 */
+            "below warn => sleep emoji"
+        );
     }
 
     #[test]
@@ -2161,7 +2167,7 @@ mod tests {
             ..Default::default()
         };
         let out = format_extra_usage(&data, &cfg).expect("Some");
-        assert_eq!(out, "\u{26a1}");
+        assert_eq!(out, "\u{26a1}" /* ⚡ */);
     }
 
     #[test]
@@ -2180,7 +2186,7 @@ mod tests {
             ..Default::default()
         };
         let out = format_extra_usage(&data, &cfg).expect("Some");
-        assert_eq!(out, "\u{26a1}");
+        assert_eq!(out, "\u{26a1}" /* ⚡ */);
     }
 
     #[test]

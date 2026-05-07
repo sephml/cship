@@ -422,27 +422,12 @@ Setting both formats to `""` effectively hides the combined token. Per-model sec
 
 ### Claude Enterprise plans
 
-On Claude Enterprise, the OAuth usage API returns `five_hour`, `seven_day`,
-and the per-model `seven_day_*` fields as `null` and reports usage exclusively
-through `extra_usage`. cship adapts automatically:
+On Enterprise, the OAuth usage API only populates `extra_usage` (the standard
+5h/7d fields are `null`). `cship.usage_limits` automatically renders just the
+`extra_usage` line, and threshold styling falls back to `extra_usage_utilization`.
 
-- `cship.usage_limits` renders only the formatted `extra_usage` line — no
-  `5h:` or `7d:` segments.
-- Threshold styling (`warn_threshold` / `critical_threshold`) is applied to
-  `extra_usage_utilization` instead of the (always zero) standard fields.
-- The `{active}` placeholder in `extra_usage_format` shows ⚡ once
-  utilization crosses `warn_threshold`, or for any non-zero utilization when
-  no threshold is configured.
-
-The `extra_usage_format` placeholders behave identically on Pro/Max and
-Enterprise: `{pct}`, `{used}`, `{limit}`, `{remaining_credits}`, `{active}`.
-The API reports `used_credits` and `monthly_limit` in cents, and cship divides
-by 100 for display (e.g. `monthly_limit: 30000` renders as `$300.00`). Dollar
-amounts always show two decimal places.
-
-Run `cship explain` if `cship.usage_limits` is empty on an Enterprise plan —
-it will tell you whether the credential is missing, the API call failed, or
-the plan reports no extra-credit billing.
+If `cship.usage_limits` is empty on Enterprise, run `cship explain` for
+specific diagnostics.
 
 ---
 
