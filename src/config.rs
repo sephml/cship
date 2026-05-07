@@ -290,7 +290,7 @@ pub struct UsageLimitsConfig {
     /// Format string for extra usage display. Shown when extra_usage.is_enabled is true.
     /// Placeholders: {active}, {pct}, {used}, {limit}, {remaining_credits}
     /// `{pct}` is the integer percentage of extra-usage budget consumed; `{used}`,
-    /// `{limit}`, and `{remaining_credits}` are dollar amounts (the API reports cents).
+    /// `{limit}`, and `{remaining_credits}` are whole-dollar amounts.
     /// `{remaining_credits}` is named distinctly from the percentage-based `{remaining}`
     /// used in other format strings to avoid silent misinterpretation.
     /// Default: "{active} extra: {pct}% (${used}/${limit})"
