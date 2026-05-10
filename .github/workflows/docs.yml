@@ -1,9 +1,6 @@
 name: Deploy Docs
 
 on:
-  push:
-    tags:
-      - 'v*'
   workflow_dispatch:
 
 # Allow one concurrent deployment
