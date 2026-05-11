@@ -1012,8 +1012,7 @@ fn test_usage_limits_stdin_renders_without_transcript_path() {
 // ── update subcommand integration tests ──────────────────────────────────
 // CSHIP_UPDATE_DRY_RUN is set on every test invocation so:
 //   (a) no real binary is downloaded or replaced (test-binary safety)
-//   (b) the 30 s network timeout is only incurred for the version-check API
-//       call, not a full binary download
+//   (b) dry-run returns before any update network call is made
 
 fn update_cmd() -> assert_cmd::Command {
     let mut cmd = cship();
