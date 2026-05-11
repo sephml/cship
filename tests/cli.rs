@@ -1069,17 +1069,23 @@ fn test_update_nothing_on_stderr() {
 }
 
 #[test]
-fn test_update_dry_run_skips_download() {
-    // When CSHIP_UPDATE_DRY_RUN is set and a newer version is available,
-    // the output must contain "[dry run]" rather than "Downloading".
-    // When already up to date the dry-run branch is never reached, so we
-    // only assert the absence of an actual download attempt.
+fn test_update_dry_run_skips_network_and_download() {
+    // CSHIP_UPDATE_DRY_RUN exits immediately after "Checking for updates…",
+    // before any network call or download.
     let output = update_cmd().output().unwrap();
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(
+        stdout.contains("[dry run]"),
+        "expected '[dry run]' marker in stdout: {stdout:?}"
+    );
+    assert!(
         !stdout.contains("Downloading"),
         "dry-run mode must not trigger a real download: {stdout:?}"
+    );
+    assert!(
+        !stdout.contains("Failed to check"),
+        "dry-run mode must not make a network call: {stdout:?}"
     );
 }
 

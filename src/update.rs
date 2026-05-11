@@ -28,6 +28,11 @@ pub fn run() {
 
     println!("Checking for updates to cship v{current_version}...");
 
+    if std::env::var("CSHIP_UPDATE_DRY_RUN").is_ok() {
+        println!("[dry run] version check skipped.");
+        return;
+    }
+
     let agent = ureq::Agent::new_with_config(
         ureq::config::Config::builder()
             .timeout_global(Some(Duration::from_secs(30)))
@@ -66,12 +71,6 @@ pub fn run() {
     }
 
     println!("New version available: v{latest_version} (current: v{current_version})");
-
-    if std::env::var("CSHIP_UPDATE_DRY_RUN").is_ok() {
-        println!("[dry run] download skipped.");
-        return;
-    }
-
     println!("Downloading {asset}...");
 
     let url = format!("{DOWNLOAD_BASE}/{asset}");
@@ -175,18 +174,20 @@ enum VersionOrder {
     Unparseable,
 }
 
-fn parse_semver(v: &str) -> Option<(u64, u64, u64)> {
+// Returns (major, minor, patch, is_stable). is_stable=true sorts above pre-releases
+// with the same numeric triple because false < true in Rust tuple comparison.
+fn parse_semver(v: &str) -> Option<(u64, u64, u64, bool)> {
     let mut parts = v.splitn(3, '.');
     let major = parts.next()?.parse().ok()?;
     let minor = parts.next()?.parse().ok()?;
-    // Ignore any pre-release suffix after the patch number.
     let patch_str = parts.next().unwrap_or("0");
+    let is_stable = patch_str.chars().all(|c| c.is_ascii_digit());
     let patch = patch_str
         .split(|c: char| !c.is_ascii_digit())
         .next()?
         .parse()
         .ok()?;
-    Some((major, minor, patch))
+    Some((major, minor, patch, is_stable))
 }
 
 fn compare_versions(latest: &str, current: &str) -> VersionOrder {
@@ -215,14 +216,22 @@ fn replace_binary(exe: &std::path::Path, bytes: &[u8]) -> Result<(), String> {
             return Err(format!("set temp file permissions: {e}"));
         }
 
-        std::fs::rename(&tmp, exe).map_err(|e| format!("atomic rename: {e}"))?;
+        if let Err(e) = std::fs::rename(&tmp, exe) {
+            let _ = std::fs::remove_file(&tmp);
+            return Err(format!("atomic rename: {e}"));
+        }
     }
 
     #[cfg(target_os = "windows")]
     {
         // On Windows the running exe cannot be written to, but CAN be renamed.
-        // Rename it first, write the new binary in its place, then clean up.
-        let old = exe.with_extension("exe.old");
+        // Use a timestamp in the backup name so a locked leftover from a prior
+        // update never blocks the rename step.
+        let ts = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_millis())
+            .unwrap_or(0);
+        let old = exe.with_file_name(format!("cship.{ts}.old"));
         std::fs::rename(exe, &old).map_err(|e| format!("rename current binary: {e}"))?;
         if let Err(e) = std::fs::write(exe, bytes) {
             // Attempt to restore the original on failure.
@@ -352,10 +361,46 @@ mod tests {
     }
 
     #[test]
-    fn compare_versions_pre_release_suffix_ignored() {
+    fn tag_strip_leading_v_before_compare() {
+        // Simulates the trim_start_matches('v') applied in run() before compare_versions.
+        let tag = "v1.8.0";
+        let stripped = tag.trim_start_matches('v');
+        assert!(matches!(
+            compare_versions(stripped, "1.7.0"),
+            VersionOrder::NewerThanCurrent
+        ));
+        // Already up to date path.
+        assert!(matches!(
+            compare_versions(stripped, "1.8.0"),
+            VersionOrder::Equal
+        ));
+    }
+
+    #[test]
+    fn compare_versions_higher_numeric_beats_prerelease() {
+        // Numeric part dominates — pre-release suffix doesn't change the outcome.
         assert!(matches!(
             compare_versions("1.8.0-beta", "1.7.0"),
             VersionOrder::NewerThanCurrent
+        ));
+    }
+
+    #[test]
+    fn compare_versions_stable_beats_same_prerelease() {
+        // Tiebreak: stable release (1.7.0) > pre-release (1.7.0-beta).
+        assert!(matches!(
+            compare_versions("1.7.0", "1.7.0-beta"),
+            VersionOrder::NewerThanCurrent
+        ));
+        // Inverse: pre-release does not beat stable.
+        assert!(matches!(
+            compare_versions("1.7.0-beta", "1.7.0"),
+            VersionOrder::OlderThanCurrent
+        ));
+        // Two identical pre-release strings are equal.
+        assert!(matches!(
+            compare_versions("1.7.0-beta", "1.7.0-beta"),
+            VersionOrder::Equal
         ));
     }
 
