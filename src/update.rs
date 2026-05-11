@@ -45,12 +45,33 @@ pub fn run() {
     // GitHub tags are typically "v1.2.3"; strip leading 'v' before comparing.
     let latest_version = latest_tag.trim_start_matches('v');
 
-    if latest_version == current_version {
-        println!("Already up to date (v{current_version}).");
-        return;
+    match compare_versions(latest_version, current_version) {
+        VersionOrder::Equal => {
+            println!("Already up to date (v{current_version}).");
+            return;
+        }
+        VersionOrder::OlderThanCurrent => {
+            println!(
+                "You are running a pre-release version (v{current_version}); latest stable is v{latest_version}."
+            );
+            return;
+        }
+        VersionOrder::NewerThanCurrent => {}
+        VersionOrder::Unparseable => {
+            println!(
+                "Could not compare versions (current: v{current_version}, latest: v{latest_version}) — aborting."
+            );
+            return;
+        }
     }
 
     println!("New version available: v{latest_version} (current: v{current_version})");
+
+    if std::env::var("CSHIP_UPDATE_DRY_RUN").is_ok() {
+        println!("[dry run] download skipped.");
+        return;
+    }
+
     println!("Downloading {asset}...");
 
     let url = format!("{DOWNLOAD_BASE}/{asset}");
@@ -147,6 +168,36 @@ fn download_bytes(agent: &ureq::Agent, url: &str) -> Result<Vec<u8>, String> {
     Ok(buf)
 }
 
+enum VersionOrder {
+    NewerThanCurrent,
+    Equal,
+    OlderThanCurrent,
+    Unparseable,
+}
+
+fn parse_semver(v: &str) -> Option<(u64, u64, u64)> {
+    let mut parts = v.splitn(3, '.');
+    let major = parts.next()?.parse().ok()?;
+    let minor = parts.next()?.parse().ok()?;
+    // Ignore any pre-release suffix after the patch number.
+    let patch_str = parts.next().unwrap_or("0");
+    let patch = patch_str
+        .split(|c: char| !c.is_ascii_digit())
+        .next()?
+        .parse()
+        .ok()?;
+    Some((major, minor, patch))
+}
+
+fn compare_versions(latest: &str, current: &str) -> VersionOrder {
+    match (parse_semver(latest), parse_semver(current)) {
+        (Some(l), Some(c)) if l > c => VersionOrder::NewerThanCurrent,
+        (Some(l), Some(c)) if l == c => VersionOrder::Equal,
+        (Some(_), Some(_)) => VersionOrder::OlderThanCurrent,
+        _ => VersionOrder::Unparseable,
+    }
+}
+
 fn replace_binary(exe: &std::path::Path, bytes: &[u8]) -> Result<(), String> {
     #[cfg(not(target_os = "windows"))]
     {
@@ -159,7 +210,10 @@ fn replace_binary(exe: &std::path::Path, bytes: &[u8]) -> Result<(), String> {
         let perms = std::fs::metadata(exe)
             .map(|m| m.permissions())
             .unwrap_or_else(|_| std::fs::Permissions::from_mode(0o755));
-        let _ = std::fs::set_permissions(&tmp, perms);
+        if let Err(e) = std::fs::set_permissions(&tmp, perms) {
+            let _ = std::fs::remove_file(&tmp);
+            return Err(format!("set temp file permissions: {e}"));
+        }
 
         std::fs::rename(&tmp, exe).map_err(|e| format!("atomic rename: {e}"))?;
     }
@@ -186,48 +240,138 @@ fn replace_binary(exe: &std::path::Path, bytes: &[u8]) -> Result<(), String> {
 mod tests {
     use super::*;
 
+    fn current_target_is_supported() -> bool {
+        matches!(
+            (std::env::consts::OS, std::env::consts::ARCH),
+            ("linux", "x86_64")
+                | ("linux", "aarch64")
+                | ("macos", "x86_64")
+                | ("macos", "aarch64")
+                | ("windows", "x86_64")
+                | ("windows", "aarch64")
+        )
+    }
+
+    // ── asset_name ────────────────────────────────────────────────────────────
+
     #[test]
     fn asset_name_returns_known_target() {
         let result = asset_name();
-        assert!(result.is_ok(), "asset_name() failed: {result:?}");
-        let name = result.unwrap();
-        assert!(name.starts_with("cship-"), "unexpected asset name: {name}");
+        if current_target_is_supported() {
+            assert!(result.is_ok(), "asset_name() failed: {result:?}");
+            assert!(
+                result.unwrap().starts_with("cship-"),
+                "unexpected asset name prefix"
+            );
+        } else {
+            assert!(
+                result.is_err(),
+                "asset_name() should fail on unsupported target"
+            );
+        }
     }
 
     #[test]
     fn asset_name_exe_suffix_on_windows_only() {
-        let name = asset_name().unwrap();
-        if cfg!(target_os = "windows") {
-            assert!(
-                name.ends_with(".exe"),
-                "Windows asset must end in .exe: {name}"
-            );
+        let result = asset_name();
+        if current_target_is_supported() {
+            let name = result.unwrap();
+            if cfg!(target_os = "windows") {
+                assert!(
+                    name.ends_with(".exe"),
+                    "Windows asset must end in .exe: {name}"
+                );
+            } else {
+                assert!(
+                    !name.ends_with(".exe"),
+                    "Non-Windows asset must not end in .exe: {name}"
+                );
+            }
         } else {
             assert!(
-                !name.ends_with(".exe"),
-                "Non-Windows asset must not end in .exe: {name}"
+                result.is_err(),
+                "asset_name() should fail on unsupported target"
             );
         }
     }
 
     #[test]
     fn asset_name_contains_arch() {
-        let name = asset_name().unwrap();
-        let arch = std::env::consts::ARCH;
-        // Both "x86_64" and "aarch64" appear verbatim in the asset name.
-        assert!(
-            name.contains(arch),
-            "asset name '{name}' should contain arch '{arch}'"
-        );
+        let result = asset_name();
+        if current_target_is_supported() {
+            let name = result.unwrap();
+            let arch = std::env::consts::ARCH;
+            assert!(
+                name.contains(arch),
+                "asset name '{name}' should contain arch '{arch}'"
+            );
+        } else {
+            assert!(
+                result.is_err(),
+                "asset_name() should fail on unsupported target"
+            );
+        }
+    }
+
+    // ── compare_versions ─────────────────────────────────────────────────────
+
+    #[test]
+    fn compare_versions_newer_detected() {
+        assert!(matches!(
+            compare_versions("1.8.0", "1.7.0"),
+            VersionOrder::NewerThanCurrent
+        ));
+        assert!(matches!(
+            compare_versions("2.0.0", "1.99.99"),
+            VersionOrder::NewerThanCurrent
+        ));
+        assert!(matches!(
+            compare_versions("1.7.1", "1.7.0"),
+            VersionOrder::NewerThanCurrent
+        ));
     }
 
     #[test]
-    fn version_tag_strip_leading_v() {
-        // Simulate the inline stripping applied in run().
-        assert_eq!("v1.7.0".trim_start_matches('v'), "1.7.0");
-        assert_eq!("1.7.0".trim_start_matches('v'), "1.7.0");
-        assert_eq!("v0.1.0-beta".trim_start_matches('v'), "0.1.0-beta");
+    fn compare_versions_equal_detected() {
+        assert!(matches!(
+            compare_versions("1.7.0", "1.7.0"),
+            VersionOrder::Equal
+        ));
     }
+
+    #[test]
+    fn compare_versions_older_detected() {
+        assert!(matches!(
+            compare_versions("1.6.0", "1.7.0"),
+            VersionOrder::OlderThanCurrent
+        ));
+        assert!(matches!(
+            compare_versions("1.7.0", "2.0.0"),
+            VersionOrder::OlderThanCurrent
+        ));
+    }
+
+    #[test]
+    fn compare_versions_pre_release_suffix_ignored() {
+        assert!(matches!(
+            compare_versions("1.8.0-beta", "1.7.0"),
+            VersionOrder::NewerThanCurrent
+        ));
+    }
+
+    #[test]
+    fn compare_versions_unparseable_returns_variant() {
+        assert!(matches!(
+            compare_versions("not-a-version", "1.7.0"),
+            VersionOrder::Unparseable
+        ));
+        assert!(matches!(
+            compare_versions("1.7.0", "not-a-version"),
+            VersionOrder::Unparseable
+        ));
+    }
+
+    // ── replace_binary ───────────────────────────────────────────────────────
 
     #[test]
     fn replace_binary_round_trips_bytes() {
@@ -237,7 +381,6 @@ mod tests {
         } else {
             "cship"
         });
-        // Write an initial "binary".
         std::fs::write(&bin, b"old content").unwrap();
 
         #[cfg(not(target_os = "windows"))]
@@ -246,13 +389,10 @@ mod tests {
             std::fs::set_permissions(&bin, std::fs::Permissions::from_mode(0o755)).unwrap();
         }
 
-        let new_bytes = b"new content";
-        replace_binary(&bin, new_bytes).expect("replace_binary should succeed");
+        replace_binary(&bin, b"new content").expect("replace_binary should succeed");
 
-        let result = std::fs::read(&bin).unwrap();
-        assert_eq!(result, new_bytes, "binary should contain the new content");
+        assert_eq!(std::fs::read(&bin).unwrap(), b"new content");
 
-        // Executable permission should be preserved on Unix.
         #[cfg(not(target_os = "windows"))]
         {
             use std::os::unix::fs::PermissionsExt as _;
@@ -265,22 +405,13 @@ mod tests {
     }
 
     #[test]
-    fn replace_binary_restores_original_on_write_failure() {
-        // Only meaningful on Windows where we rename before writing.
-        // On Unix the rename is the last step so partial failure leaves tmp around,
-        // not the original — the test only applies to Windows.
-        #[cfg(target_os = "windows")]
-        {
-            let dir = tempfile::tempdir().unwrap();
-            let bin = dir.path().join("cship.exe");
-            std::fs::write(&bin, b"original").unwrap();
-
-            // Point exe at a read-only directory so write fails after rename.
-            // Simulate by targeting a path inside a nonexistent subdir.
-            let bad_path = dir.path().join("no_such_dir").join("cship.exe");
-            // This should fail because the parent dir doesn't exist.
-            let result = replace_binary(&bad_path, b"new");
-            assert!(result.is_err(), "should fail when target path is invalid");
-        }
+    fn replace_binary_fails_when_exe_does_not_exist() {
+        // Verifies that replace_binary returns Err (rather than panicking) when
+        // the target path's parent directory does not exist — the rename/write
+        // step fails before any restoration logic is reached.
+        let dir = tempfile::tempdir().unwrap();
+        let bad_path = dir.path().join("no_such_dir").join("cship.exe");
+        let result = replace_binary(&bad_path, b"new");
+        assert!(result.is_err(), "should fail when target path is invalid");
     }
 }

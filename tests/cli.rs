@@ -1010,11 +1010,21 @@ fn test_usage_limits_stdin_renders_without_transcript_path() {
 }
 
 // ── update subcommand integration tests ──────────────────────────────────
+// CSHIP_UPDATE_DRY_RUN is set on every test invocation so:
+//   (a) no real binary is downloaded or replaced (test-binary safety)
+//   (b) the 30 s network timeout is only incurred for the version-check API
+//       call, not a full binary download
+
+fn update_cmd() -> assert_cmd::Command {
+    let mut cmd = cship();
+    cmd.arg("update").env("CSHIP_UPDATE_DRY_RUN", "1");
+    cmd
+}
 
 #[test]
 fn test_update_subcommand_always_exits_zero() {
     // update prints messages and returns on any failure path — never calls exit(1).
-    let output = cship().arg("update").output().unwrap();
+    let output = update_cmd().output().unwrap();
     assert!(
         output.status.success(),
         "update should always exit 0; stderr: {}",
@@ -1024,9 +1034,9 @@ fn test_update_subcommand_always_exits_zero() {
 
 #[test]
 fn test_update_prints_checking_message_first() {
-    // The very first line of output is always emitted before the network call,
+    // "Checking for updates" is emitted before the network call,
     // so it is reliable even in offline/CI environments.
-    let output = cship().arg("update").output().unwrap();
+    let output = update_cmd().output().unwrap();
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(
@@ -1037,8 +1047,7 @@ fn test_update_prints_checking_message_first() {
 
 #[test]
 fn test_update_stdout_not_empty() {
-    // update always prints at least one status line.
-    let output = cship().arg("update").output().unwrap();
+    let output = update_cmd().output().unwrap();
     assert!(output.status.success());
     let stdout = String::from_utf8_lossy(&output.stdout);
     assert!(
@@ -1050,13 +1059,27 @@ fn test_update_stdout_not_empty() {
 #[test]
 fn test_update_nothing_on_stderr() {
     // update is a CLI-action command; all output goes to stdout, nothing to stderr.
-    let output = cship().arg("update").output().unwrap();
+    let output = update_cmd().output().unwrap();
     assert!(output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
-    // Tracing may emit debug/warn lines at default log level, but we should see no errors.
     assert!(
         !stderr.contains("error"),
         "unexpected error on stderr: {stderr:?}"
+    );
+}
+
+#[test]
+fn test_update_dry_run_skips_download() {
+    // When CSHIP_UPDATE_DRY_RUN is set and a newer version is available,
+    // the output must contain "[dry run]" rather than "Downloading".
+    // When already up to date the dry-run branch is never reached, so we
+    // only assert the absence of an actual download attempt.
+    let output = update_cmd().output().unwrap();
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        !stdout.contains("Downloading"),
+        "dry-run mode must not trigger a real download: {stdout:?}"
     );
 }
 
