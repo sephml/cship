@@ -9,4 +9,5 @@ pub mod passthrough;
 pub mod platform;
 pub mod renderer;
 pub mod uninstall;
+pub mod update;
 pub mod usage_limits;

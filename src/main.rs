@@ -22,6 +22,8 @@ enum Commands {
     Explain,
     /// Remove cship binary and settings.json entry.
     Uninstall,
+    /// Download and install the latest release without touching any config files.
+    Update,
 }
 
 fn main() {
@@ -49,6 +51,9 @@ fn main() {
         }
         Some(Commands::Uninstall) => {
             cship::uninstall::run();
+        }
+        Some(Commands::Update) => {
+            cship::update::run();
         }
         None => {
             let ctx = match cship::context::from_stdin() {
