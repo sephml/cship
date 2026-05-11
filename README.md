@@ -139,6 +139,22 @@ To check the installed binary version:
 cship --version   # or: cship -v
 ```
 
+## 🔄 Updating
+
+Update to the latest release without touching any config files:
+
+```sh
+cship update
+```
+
+This downloads the new binary for your platform from [GitHub Releases](https://github.com/stephenleo/cship/releases/latest) and replaces the current binary in-place. Your `~/.config/cship.toml`, `~/.claude/settings.json` `statusLine` entry, and all other configuration are left untouched.
+
+If you installed via `cargo install`, update with:
+
+```sh
+cargo install cship
+```
+
 ## ✨ Showcase
 
 Six ready-to-use configurations — from minimal to full-featured. Each can be dropped into `~/.config/cship.toml`.
