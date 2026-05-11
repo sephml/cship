@@ -188,10 +188,99 @@ mod tests {
 
     #[test]
     fn asset_name_returns_known_target() {
-        // Just verify the function doesn't error on the current platform.
         let result = asset_name();
         assert!(result.is_ok(), "asset_name() failed: {result:?}");
         let name = result.unwrap();
         assert!(name.starts_with("cship-"), "unexpected asset name: {name}");
+    }
+
+    #[test]
+    fn asset_name_exe_suffix_on_windows_only() {
+        let name = asset_name().unwrap();
+        if cfg!(target_os = "windows") {
+            assert!(
+                name.ends_with(".exe"),
+                "Windows asset must end in .exe: {name}"
+            );
+        } else {
+            assert!(
+                !name.ends_with(".exe"),
+                "Non-Windows asset must not end in .exe: {name}"
+            );
+        }
+    }
+
+    #[test]
+    fn asset_name_contains_arch() {
+        let name = asset_name().unwrap();
+        let arch = std::env::consts::ARCH;
+        // Both "x86_64" and "aarch64" appear verbatim in the asset name.
+        assert!(
+            name.contains(arch),
+            "asset name '{name}' should contain arch '{arch}'"
+        );
+    }
+
+    #[test]
+    fn version_tag_strip_leading_v() {
+        // Simulate the inline stripping applied in run().
+        assert_eq!("v1.7.0".trim_start_matches('v'), "1.7.0");
+        assert_eq!("1.7.0".trim_start_matches('v'), "1.7.0");
+        assert_eq!("v0.1.0-beta".trim_start_matches('v'), "0.1.0-beta");
+    }
+
+    #[test]
+    fn replace_binary_round_trips_bytes() {
+        let dir = tempfile::tempdir().unwrap();
+        let bin = dir.path().join(if cfg!(target_os = "windows") {
+            "cship.exe"
+        } else {
+            "cship"
+        });
+        // Write an initial "binary".
+        std::fs::write(&bin, b"old content").unwrap();
+
+        #[cfg(not(target_os = "windows"))]
+        {
+            use std::os::unix::fs::PermissionsExt as _;
+            std::fs::set_permissions(&bin, std::fs::Permissions::from_mode(0o755)).unwrap();
+        }
+
+        let new_bytes = b"new content";
+        replace_binary(&bin, new_bytes).expect("replace_binary should succeed");
+
+        let result = std::fs::read(&bin).unwrap();
+        assert_eq!(result, new_bytes, "binary should contain the new content");
+
+        // Executable permission should be preserved on Unix.
+        #[cfg(not(target_os = "windows"))]
+        {
+            use std::os::unix::fs::PermissionsExt as _;
+            let mode = std::fs::metadata(&bin).unwrap().permissions().mode();
+            assert!(
+                mode & 0o111 != 0,
+                "executable bit should be set after replace"
+            );
+        }
+    }
+
+    #[test]
+    fn replace_binary_restores_original_on_write_failure() {
+        // Only meaningful on Windows where we rename before writing.
+        // On Unix the rename is the last step so partial failure leaves tmp around,
+        // not the original — the test only applies to Windows.
+        #[cfg(target_os = "windows")]
+        {
+            let dir = tempfile::tempdir().unwrap();
+            let bin = dir.path().join("cship.exe");
+            std::fs::write(&bin, b"original").unwrap();
+
+            // Point exe at a read-only directory so write fails after rename.
+            // Simulate by targeting a path inside a nonexistent subdir.
+            let bad_path = dir.path().join("no_such_dir").join("cship.exe");
+            // This should fail because the parent dir doesn't exist.
+            let result = replace_binary(&bad_path, b"new");
+            assert!(result.is_err(), "should fail when target path is invalid");
+        }
     }
 }

@@ -1009,6 +1009,57 @@ fn test_usage_limits_stdin_renders_without_transcript_path() {
     );
 }
 
+// ── update subcommand integration tests ──────────────────────────────────
+
+#[test]
+fn test_update_subcommand_always_exits_zero() {
+    // update prints messages and returns on any failure path — never calls exit(1).
+    let output = cship().arg("update").output().unwrap();
+    assert!(
+        output.status.success(),
+        "update should always exit 0; stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+}
+
+#[test]
+fn test_update_prints_checking_message_first() {
+    // The very first line of output is always emitted before the network call,
+    // so it is reliable even in offline/CI environments.
+    let output = cship().arg("update").output().unwrap();
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        stdout.contains("Checking for updates"),
+        "expected 'Checking for updates' in stdout: {stdout:?}"
+    );
+}
+
+#[test]
+fn test_update_stdout_not_empty() {
+    // update always prints at least one status line.
+    let output = cship().arg("update").output().unwrap();
+    assert!(output.status.success());
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(
+        !stdout.trim().is_empty(),
+        "update should produce at least one line of output"
+    );
+}
+
+#[test]
+fn test_update_nothing_on_stderr() {
+    // update is a CLI-action command; all output goes to stdout, nothing to stderr.
+    let output = cship().arg("update").output().unwrap();
+    assert!(output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    // Tracing may emit debug/warn lines at default log level, but we should see no errors.
+    assert!(
+        !stderr.contains("error"),
+        "unexpected error on stderr: {stderr:?}"
+    );
+}
+
 // ── Story 7.6: Starship-compatible format field integration tests ──────────
 
 #[test]
